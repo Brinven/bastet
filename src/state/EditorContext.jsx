@@ -58,6 +58,18 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
     setFields((f) => ({ ...f, [binding]: value }))
   }, [])
 
+  // Auto-populate contact fields from a Tier 2 rescue profile (M7). Fills ONLY empty fields —
+  // never clobbers what the volunteer already typed.
+  const applyProfile = useCallback((profile) => {
+    if (!profile) return
+    setFields((f) => ({
+      ...f,
+      [FIELDS.RESCUE_NAME]: f[FIELDS.RESCUE_NAME] || profile.rescue_name || '',
+      [FIELDS.RESCUE_PHONE]: f[FIELDS.RESCUE_PHONE] || profile.rescue_phone || '',
+      [FIELDS.RESCUE_WEBSITE]: f[FIELDS.RESCUE_WEBSITE] || profile.rescue_website || '',
+    }))
+  }, [])
+
   const toggleBadge = useCallback((binding) => {
     setBadges((b) => ({ ...b, [binding]: !b[binding] }))
   }, [])
@@ -155,7 +167,7 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
     () => ({
       doc, loadTemplate, templateId, interactive,
       outputSize, setOutputSize,
-      fields, setField,
+      fields, setField, applyProfile,
       badges, toggleBadge,
       customFields, addCustomField, removeCustomField, renameCustomField, moveCustomField,
       fosterVsAdopt, setFosterVsAdopt,
@@ -166,7 +178,7 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
     }),
     [
       doc, loadTemplate, templateId, interactive, outputSize, setOutputSize,
-      fields, setField, badges, toggleBadge,
+      fields, setField, applyProfile, badges, toggleBadge,
       customFields, addCustomField, removeCustomField, renameCustomField, moveCustomField,
       fosterVsAdopt, feeMode, photo, loadPhoto, setPhotoTransform, clearPhoto,
       fonts, setGlobalFont, setElementFont, fontFor, selectedId, select,

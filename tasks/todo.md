@@ -117,6 +117,44 @@ response (dev) instead of emailing; with the key set (prod), it emails and never
 > (SPF/DKIM, e.g. `bastet@axly.com`), then `wrangler secret put RESEND_API_KEY` (+ optionally
 > `MAGIC_LINK_FROM`, `MAGIC_LINK_BASE_URL`). Until then, prod sign-in can't email; dev is unblocked.
 
+## M7 — Tier 2 Saving + Profile  *(in progress)*
+
+**Architecture call:** logo + flyer-thumbnail uploads go **through the Worker → R2** (same-origin
+to `/api`), NOT browser-direct. This avoids R2 CORS config + the prod-origin dependency entirely
+(both stay deferred — not needed with worker-proxied uploads). Caps enforced server-side:
+**10 MB logo, 2 MB thumbnail** (PRD). R2 objects are served back through authed Worker routes.
+
+### M7a — Rescue profile + auto-populate  *(done)*
+- [x] Worker `PATCH /api/me` — partial update of rescue_name/phone/website (+ custom_fields ready
+  for M7c); `clampStr` validation; prepared statements; `updated_at`.
+- [x] Worker `POST /api/me/logo` (multipart → R2 `bastet-user-assets`, ≤10 MB, image-only, stable
+  key `logos/<userId>`) + `GET /api/me/logo` (serve from R2, authed). `lib/r2.js` helpers.
+- [x] Frontend: `ProfileModal` (from the account menu → "🏷️ Rescue profile") — name/phone/website
+  + logo upload/preview; `ui/Modal.jsx` primitive. `AuthContext` gains `updateProfile`/`uploadLogo`.
+- [x] **Auto-populate:** `EditorContext.applyProfile` fills EMPTY contact fields only; `ProfileAutofill`
+  bridge in `Editor.jsx` runs once per login (resets on logout). Never clobbers typed values.
+- [x] Verified: curl (PATCH persists; logo round-trips R2 byte-for-byte 77→77; GET /api/me shows
+  saved profile) + Playwright (sign in → contact band auto-fills "Paws & Claws Rescue" + phone/web;
+  profile modal shows saved fields + logo).
+- [ ] **Follow-up (not yet):** render the logo ON the flyer (cleanest single spot = `ContactBlock`,
+  covers all templates) + auto-load it into the editor. Deferred — M7a stores/serves/shows the logo
+  in the profile; it doesn't appear on the flyer yet.
+
+### M7b — Save / load flyers  *(chunk 2)*
+- [ ] Worker `POST /api/me/flyers` (flyer_data JSON + thumbnail PNG → R2, ≤2 MB; name, output_size),
+  `GET /api/me/flyers` (list w/ thumbnail URL), `GET /api/me/flyers/:id`, `DELETE /api/me/flyers/:id`.
+  All scoped to the session user (no cross-user access).
+- [ ] Frontend: "Save flyer" (captures full editor state — fields, badges, customFields, photo?,
+  fonts, templateId, nativeDoc) + "My flyers" gallery (load / delete, thumbnails).
+- [ ] Decide photo handling on save (photo is a local File/dataURL — store in R2 or omit + re-add?).
+- [ ] Verify: save → appears in My flyers w/ thumbnail → load restores state → delete removes.
+
+### M7c — Private templates + persist custom fields  *(chunk 3)*
+- [ ] Worker `POST /api/me/templates` (template_data + thumbnail), `GET /api/me/templates`.
+- [ ] Frontend: "Save as template" (layout, no animal content) + private templates in the gallery.
+- [ ] Custom-field definitions persist to the profile (covered by M7a custom_fields) + load on sign in.
+- [ ] Verify; build clean; update todo/handoff/lessons; retain M7 closeout.
+
 ---
 
 ## Review

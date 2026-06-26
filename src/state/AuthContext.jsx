@@ -8,6 +8,8 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Bumped on logo upload to cache-bust the (constant-URL) /api/me/logo image.
+  const [logoVersion, setLogoVersion] = useState(0)
 
   const refresh = useCallback(async () => {
     try {
@@ -55,8 +57,42 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
+  const updateProfile = useCallback(async (patch) => {
+    try {
+      const res = await fetch('/api/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(patch),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) setUser(data.user)
+      return { ok: res.ok, ...data }
+    } catch {
+      return { ok: false, error: 'Network error.' }
+    }
+  }, [])
+
+  const uploadLogo = useCallback(async (file) => {
+    try {
+      const fd = new FormData()
+      fd.append('logo', file)
+      const res = await fetch('/api/me/logo', { method: 'POST', credentials: 'include', body: fd })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setUser(data.user)
+        setLogoVersion((v) => v + 1)
+      }
+      return { ok: res.ok, ...data }
+    } catch {
+      return { ok: false, error: 'Network error.' }
+    }
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, loading, refresh, requestLink, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, logoVersion, refresh, requestLink, logout, updateProfile, uploadLogo }}
+    >
       {children}
     </AuthContext.Provider>
   )

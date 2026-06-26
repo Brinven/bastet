@@ -89,3 +89,29 @@ export async function createSession(db, userId, tokenHash) {
 export async function deleteSession(db, tokenHash) {
   await db.prepare(`DELETE FROM sessions WHERE token_hash = ?`).bind(tokenHash).run()
 }
+
+// ── Tier 2 profile (M7) ──────────────────────────────────────────────────────────────────────
+export async function getUserById(db, userId) {
+  return await db.prepare(`SELECT * FROM users WHERE id = ?`).bind(userId).first()
+}
+
+export async function updateUserProfile(db, userId, fields) {
+  const { rescue_name, rescue_phone, rescue_website, custom_fields } = fields
+  await db
+    .prepare(
+      `UPDATE users
+          SET rescue_name = ?, rescue_phone = ?, rescue_website = ?, custom_fields = ?,
+              updated_at = datetime('now')
+        WHERE id = ?`
+    )
+    .bind(rescue_name ?? null, rescue_phone ?? null, rescue_website ?? null, custom_fields ?? '[]', userId)
+    .run()
+  return await getUserById(db, userId)
+}
+
+export async function setUserLogoKey(db, userId, key) {
+  await db
+    .prepare(`UPDATE users SET rescue_logo_key = ?, updated_at = datetime('now') WHERE id = ?`)
+    .bind(key, userId)
+    .run()
+}

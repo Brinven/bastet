@@ -1,12 +1,20 @@
 import { useState } from 'react'
 import Menu from '../ui/Menu.jsx'
+import ProfileModal from '../profile/ProfileModal.jsx'
 import { useAuth } from '../../state/AuthContext.jsx'
 
 // TopBar account control. Tier 1 is the default — this is an unobtrusive optional sign-in.
 export default function AccountButton() {
   const { user, loading } = useAuth()
+  const [profileOpen, setProfileOpen] = useState(false)
   if (loading) return null
-  return user ? <AccountMenu user={user} /> : <SignInMenu />
+  if (!user) return <SignInMenu />
+  return (
+    <>
+      <AccountMenu user={user} onOpenProfile={() => setProfileOpen(true)} />
+      <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
+    </>
+  )
 }
 
 function SignInMenu() {
@@ -90,7 +98,7 @@ function SignInMenu() {
   )
 }
 
-function AccountMenu({ user }) {
+function AccountMenu({ user, onOpenProfile }) {
   const { logout } = useAuth()
   const display = user.rescue_name?.trim() || user.email
   const initial = (display || '?').trim().charAt(0).toUpperCase()
@@ -123,6 +131,16 @@ function AccountMenu({ user }) {
             <span className="truncate text-[12px] text-ink-faint">{user.email}</span>
           </div>
           <div className="my-1 h-px bg-border" />
+          <button
+            type="button"
+            onClick={() => {
+              close()
+              onOpenProfile()
+            }}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[14px] font-semibold text-ink transition hover:bg-sunken"
+          >
+            <span aria-hidden>🏷️</span> Rescue profile
+          </button>
           <button
             type="button"
             onClick={() => {

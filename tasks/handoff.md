@@ -5,8 +5,9 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
 `bastet-PRD.md` + `CLAUDE.md` (spec).
 
 ## Where we are
-- **Push 1 (M1–M4) committed `a44a337`. M5 (custom fields) committed + pushed `79a06bd`.
-  M6 (Tier 2 magic-link auth) COMPLETE + verified — NOT yet committed** (working tree).
+- **Push 1 (M1–M4) `a44a337`. M5 `79a06bd`. M6 (magic-link auth) `5522289`.** **M7a (rescue
+  profile + logo + auto-populate) COMPLETE + verified — NOT yet committed** (working tree).
+  M7b (save/load flyers) + M7c (private templates, persist custom fields) still to do.
 - Repo: **https://github.com/Brinven/bastet** (public, MIT). `origin` set, `main` ↔ `origin/main`.
 - The **Tier 1 anonymous (no-account) flyer maker works end-to-end**: land → pick a template →
   add a photo (drag/zoom reframe, never auto-cropped) → fill fields → **add your own custom

@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEditor } from '../../state/EditorContext.jsx'
+import { useAuth } from '../../state/AuthContext.jsx'
 import { useFonts } from '../../hooks/useFonts.js'
 import { loadImageFile, isLowRes } from '../../lib/image.js'
 import { exportToPNG, exportToPDF } from '../../lib/export.js'
@@ -7,6 +8,22 @@ import TopBar from '../TopBar.jsx'
 import EditorCanvas from './EditorCanvas.jsx'
 import ControlPanel from '../fields/ControlPanel.jsx'
 import TemplateGallery from '../templates/TemplateGallery.jsx'
+
+// Fill contact fields from the signed-in rescue profile once per login (empties only).
+function ProfileAutofill() {
+  const { user } = useAuth()
+  const { applyProfile } = useEditor()
+  const appliedFor = useRef(null)
+  useEffect(() => {
+    if (user && appliedFor.current !== user.id) {
+      applyProfile(user)
+      appliedFor.current = user.id
+    } else if (!user) {
+      appliedFor.current = null
+    }
+  }, [user, applyProfile])
+  return null
+}
 
 export default function Editor() {
   useFonts() // load the curated flyer fonts + track readiness for export
@@ -64,6 +81,7 @@ export default function Editor() {
 
   return (
     <div className="flex min-h-screen flex-col bg-bg text-ink lg:h-screen lg:overflow-hidden">
+      <ProfileAutofill />
       <TopBar onDownload={handleDownload} downloading={downloading} />
 
       <input
