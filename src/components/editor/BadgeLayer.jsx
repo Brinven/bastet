@@ -17,7 +17,7 @@ function measureText(text, font) {
 // "Good with…" + spayed/neutered as warm pills. Only enabled badges render; they flow
 // left-to-right and wrap within the element's width.
 export function FlyerBadges({ element }) {
-  const { badges, fonts } = useEditor()
+  const { badges, customFields, fonts } = useEditor()
   const family = fonts.global
   const k = element._k ?? 1
   const CHIP_H = 58 * k
@@ -25,16 +25,22 @@ export function FlyerBadges({ element }) {
   const CHIP_PAD = 28 * k
   const CHIP_FS = 26 * k
   const font = `600 ${CHIP_FS}px ${family}`
-  const enabled = element.items.filter((b) => badges[b])
+
+  // Built-in badges (in the template's order) followed by any toggled-on custom badge fields.
+  const builtIn = element.items
+    .filter((b) => badges[b])
+    .map((b) => ({ key: b, label: BADGE_META[b].short || BADGE_META[b].label, glyph: BADGE_META[b].glyph }))
+  const custom = (customFields || [])
+    .filter((d) => d.type === 'badge' && badges[d.id])
+    .map((d) => ({ key: d.id, label: (d.label || '').trim() || 'Badge', glyph: d.glyph || '⭐' }))
+  const enabled = [...builtIn, ...custom]
   if (enabled.length === 0) return null
 
   const chips = []
   let cx = 0
   let cy = 0
-  for (const b of enabled) {
-    const meta = BADGE_META[b]
-    const label = meta.short || meta.label
-    const glyph = meta.glyph
+  for (const entry of enabled) {
+    const { key, label, glyph } = entry
     const textW = measureText(label, font)
     const glyphW = CHIP_FS + 8 * k
     const chipW = CHIP_PAD + glyphW + textW + CHIP_PAD
@@ -42,14 +48,14 @@ export function FlyerBadges({ element }) {
       cx = 0
       cy += CHIP_H + CHIP_GAP
     }
-    chips.push({ b, label, glyph, chipW, x: cx, y: cy })
+    chips.push({ key, label, glyph, chipW, x: cx, y: cy })
     cx += chipW + CHIP_GAP
   }
 
   return (
     <Group x={element.x} y={element.y} listening={false}>
       {chips.map((c) => (
-        <Group key={c.b} x={c.x} y={c.y}>
+        <Group key={c.key} x={c.x} y={c.y}>
           <Rect
             width={c.chipW}
             height={CHIP_H}

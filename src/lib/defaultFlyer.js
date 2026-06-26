@@ -15,7 +15,8 @@ const INK_BODY = '#4a4038'
 const BAND = '#e8a33d' // marigold footer band (matches brand gold)
 const ON_BAND = '#2b211a'
 
-// Square (Instagram Post) — the default canvas for M2.
+// Square (Instagram Post) — the default canvas. The vertical rhythm leaves a `custom` lane
+// between the bio and the badge row for M5 custom text fields (invisible until used).
 function squareFlyer() {
   const { width, height } = OUTPUT_SIZES.instagram_post // 1080 x 1080
   return {
@@ -28,34 +29,34 @@ function squareFlyer() {
         id: 'photo',
         type: 'photo',
         fieldBinding: FIELDS.ANIMAL_PHOTO,
-        x: 64, y: 64, width: 952, height: 520, radius: 30,
+        x: 64, y: 64, width: 952, height: 488, radius: 30,
       },
       {
         id: 'status_tag',
         type: 'tag',
         fieldBinding: FIELDS.FOSTER_VS_ADOPT,
-        x: 88, y: 528, // overlaps lower-left of the photo
+        x: 88, y: 496, // overlaps lower-left of the photo
       },
       {
         id: 'name',
         type: 'text',
         fieldBinding: FIELDS.ANIMAL_NAME,
         role: 'display',
-        x: 64, y: 612, width: 632,
-        fontSize: 92, fontWeight: 800, fill: INK,
+        x: 64, y: 576, width: 632,
+        fontSize: 90, fontWeight: 800, fill: INK,
         placeholder: 'Biscuit',
       },
       {
         id: 'fee',
         type: 'fee',
-        x: 720, y: 632, width: 296,
+        x: 720, y: 596, width: 296,
         align: 'right',
       },
       {
         id: 'meta',
         type: 'metaText',
         parts: [FIELDS.BREED, FIELDS.AGE, FIELDS.GENDER, FIELDS.WEIGHT],
-        x: 66, y: 730, width: 948,
+        x: 66, y: 690, width: 948,
         fontSize: 30, fill: INK_SOFT, separator: '  ·  ',
         placeholder: 'Spaniel mix  ·  2 yrs  ·  Female',
       },
@@ -63,15 +64,21 @@ function squareFlyer() {
         id: 'bio',
         type: 'text',
         fieldBinding: FIELDS.BIO,
-        x: 66, y: 784, width: 948,
+        x: 66, y: 742, width: 948,
         fontSize: 29, lineHeight: 1.32, fill: INK_BODY,
         placeholder:
           'A gentle, people-loving sweetheart who loves leash walks and sunny windowsill naps.',
       },
       {
+        id: 'custom',
+        type: 'custom',
+        x: 66, y: 832, width: 948,
+        fill: INK_BODY, labelFill: INK_SOFT,
+      },
+      {
         id: 'badges',
         type: 'badges',
-        x: 66, y: 884, width: 948,
+        x: 66, y: 888, width: 948,
         items: [
           FIELDS.GOOD_WITH_KIDS,
           FIELDS.GOOD_WITH_DOGS,

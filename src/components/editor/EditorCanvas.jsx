@@ -3,6 +3,7 @@ import { Stage, Layer, Group, Rect } from 'react-konva'
 import { useEditor } from '../../state/EditorContext.jsx'
 import FlyerPhoto from './FlyerPhoto.jsx'
 import FlyerText from './FlyerText.jsx'
+import FlyerCustom from './FlyerCustom.jsx'
 import ContactBlock from './ContactBlock.jsx'
 import { FlyerBadges, FlyerFee, FlyerStatusTag } from './BadgeLayer.jsx'
 
@@ -102,6 +103,8 @@ function CanvasElement({ element, interactive, onRequestPhoto }) {
     case 'text':
     case 'metaText':
       return <FlyerText element={element} interactive={interactive} />
+    case 'custom':
+      return <FlyerCustom element={element} />
     case 'badges':
       return <FlyerBadges element={element} />
     case 'fee':

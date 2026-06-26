@@ -57,6 +57,36 @@ Full plan: `C:\Users\zwolf\.claude\plans\snug-napping-map.md`
 
 ---
 
+# Push 2 (M5–M8)
+
+## M5 — Custom Fields  *(done)*
+
+Decisions (user, 2026-06-26): custom **text** → a **dedicated labeled block** on the flyer
+(not folded into the meta line); types = **Text + Badge** only (Dropdown deferred). Tier 1 only
+for MVP — Tier 2 persistence lands in M7.
+
+- [x] **Data model + state** (`EditorContext`): `customFields` ordered array of defs
+  `{ id:'custom_<uuid>', type:'text'|'badge', label, glyph? }`. Values **piggyback on the
+  existing `fields`/`badges` maps** (already keyed by arbitrary id). Actions: `addCustomField`,
+  `removeCustomField` (also strips its value), `renameCustomField`, `moveCustomField` (up/down).
+  Carried through `loadTemplate` (separate state — content is kept, like fields/photo).
+- [x] **Control panel** `CustomFields.jsx` in a "Your own fields" collapsible: `+ Text` /
+  `+ Badge` buttons, per-field card (editable label + value control [text input | switch] +
+  ↑/↓/remove). No DnD dep — up/down only.
+- [x] **Render — custom badges**: `FlyerBadges` appends toggled-on custom badge chips after the
+  built-ins (default glyph ⭐; unified entry list `{key,label,glyph}`).
+- [x] **Render — custom text**: new `custom` element type (`FlyerCustom.jsx`). Bounded by design —
+  fixed-height rows (`label  value`), value single-line + ellipsis, scales via `_k`. Empty fields
+  don't render (unused block invisible → no collision).
+- [x] `custom` slot in default flyer + all 6 templates (trimmed photo heights to open a lane;
+  Spotlight = text-only, it has no pill row by design so custom badges don't apply there).
+- [x] **Verified (Playwright)**: custom text + badge across calm/sunny/urgent/elegance/story/
+  spotlight; Facebook refit (`_k` scaling); **Print PNG export = 2550×3300** with custom content.
+- [x] Build clean (`npm run build`, 630 modules); grep — no console.log of user data.
+- [x] todo + handoff + lessons updated; M5 retained to Ib/Hindsight.
+
+---
+
 ## Review
 
 ### M1 — Scaffold + CF Infrastructure ✅ (2026-06-26)
@@ -134,6 +164,38 @@ preview-resolution canvas, but this app authors the doc at the TRUE output resol
 oversampled to 7650×9900. Fix: `pixelRatio:1` (doc already = output pixels) + PDF compression.
 Lesson: a "always do X" constant is only valid within the architecture it was written for —
 re-derive it when the surrounding model changes.
+
+### M5 — Custom Fields ✅ (2026-06-26)
+Tier-1 custom fields. A "Your own fields" panel (`CustomFields.jsx`) lets a volunteer add/rename/
+reorder/remove their own **Text** or **Badge** fields. Values piggyback on the existing
+`fields`/`badges` maps (keyed by `custom_<uuid>`), so `setField`/`toggleBadge` already handle
+them and `removeCustomField` strips the orphan value. Custom **badges** flow into the existing
+pill row (`FlyerBadges`); custom **text** renders in a new `custom` element type (`FlyerCustom.jsx`)
+as a labeled, bounded block — one fixed-height `label  value` row per filled field, value
+single-line + ellipsis, so it can never blow out a layout. Empty fields render nothing, so an
+unused lane is invisible. Each of the 6 templates + the default got a `custom` slot (photos
+trimmed ~30–55px to open the lane).
+
+**User decisions:** dedicated labeled block (not folded into the meta line); Text + Badge only
+(Dropdown deferred — a dropdown's chosen value renders identically to text on a flyer anyway).
+
+**Verified (Playwright):** custom text + custom badge across all 6 templates (calm/sunny/urgent/
+elegance/story/spotlight) — clean in the common case; Facebook landscape refit (`_k` scaling
+correct); **Print PNG export = 2550×3300** with the custom row present (same render path → export
+fidelity inherited). Spotlight is text-only by design (no pill row → built-in *and* custom badges
+both absent there — consistent, not a bug).
+
+**Known limit (documented, like FB landscape):** on the dense **square** templates there is only
+room for ~1 custom *text* row before the badge row; 2+ rows + a full badge set gets tight. The
+portrait Story has ample room. Real use is a few short fields, so this is acceptable for MVP;
+M7's save/profile work could later make the lower stack reflow if it proves annoying.
+
+**Bug autopsy:** none shipped. The one real tension was spatial — the square flyer is already
+full (photo+name+meta+bio+badges+contact), so a *dedicated* custom lane has to take space from
+something. Reserving a fixed empty lane made the no-custom common case look gappy; the fix was to
+trim the photo a little and keep the lane modest (clean for 0–1 rows). Lesson: when a fixed-layout
+canvas is full, new optional content trades against either the common-case look or the photo —
+pick deliberately and verify the *unused* state, not just the used one.
 
 ---
 

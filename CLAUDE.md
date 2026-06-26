@@ -6,6 +6,25 @@ Bastet is a free, open-source, browser-based flyer/poster maker for volunteer an
 
 ---
 
+## ⚠️ As-Built Notes (Push 1, M1–M4) — read before "fixing" the spec
+
+Some implementation realities intentionally diverge from the illustrative stubs below. Do **not**
+revert these; the reasons are real. Full context in `tasks/handoff.md` + `tasks/todo.md` autopsies.
+
+1. **Export `pixelRatio` is `1`, not `3`** (see Gotcha #2 / the `export.js` stub). The flyer
+   document is authored at the TRUE output resolution (Print = 2550×3300), so `pixelRatio:3`
+   oversamples 3× → a **227 MB** print PDF. `pixelRatio:1` yields the exact promised size.
+   Font-load-before-export (Gotcha #1) remains mandatory.
+2. **Template format = semantic field-bound elements**, not raw Konva primitives. A flyer doc is
+   `{ outputSize, width, height, background, elements[] }` with element `type`s `photo | text |
+   metaText | custom | badges | fee | tag | contact | rect` in 1080-output coordinates. The
+   "Template JSON structure" section below was illustrative; this is the real format (and what D1
+   stores as `template_data` in M8). (`custom` = M5 user custom-field lane.)
+3. **Output sizes auto-refit** via `src/lib/refit.js` (a template scales to any of the 4 sizes).
+   Facebook landscape is the known imperfect case.
+
+---
+
 ## Stack
 
 | Layer | Technology | Notes |

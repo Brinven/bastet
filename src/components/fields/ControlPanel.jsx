@@ -5,6 +5,7 @@ import { Field, TextArea, Switch, Segmented } from '../ui/Controls.jsx'
 import Collapsible from '../ui/Collapsible.jsx'
 import PhotoControl from './PhotoControl.jsx'
 import FontPicker from './FontPicker.jsx'
+import CustomFields from './CustomFields.jsx'
 
 const BADGE_ORDER = [
   FIELDS.GOOD_WITH_KIDS,
@@ -104,6 +105,10 @@ export default function ControlPanel({ photo }) {
         <Field label="Rescue name" value={fields[FIELDS.RESCUE_NAME]} onChange={(v) => setField(FIELDS.RESCUE_NAME, v)} placeholder="Happy Tails Rescue" />
         <Field label="Phone" value={fields[FIELDS.RESCUE_PHONE]} onChange={(v) => setField(FIELDS.RESCUE_PHONE, v)} placeholder="(555) 123-4567" inputMode="tel" />
         <Field label="Website" value={fields[FIELDS.RESCUE_WEBSITE]} onChange={(v) => setField(FIELDS.RESCUE_WEBSITE, v)} placeholder="happytails.org" />
+      </Collapsible>
+
+      <Collapsible title="Your own fields" glyph="🏷️">
+        <CustomFields />
       </Collapsible>
 
       <Collapsible title="Style" glyph="🎨">

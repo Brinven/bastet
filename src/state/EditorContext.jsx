@@ -19,8 +19,18 @@ const BADGE_FIELDS = [
 // Friendly default flyer font (warm, readable on a flyer — distinct from the UI chrome font).
 const DEFAULT_FLYER_FONT = 'Poppins'
 
+// Default chip glyph for a user-created badge field (built-in badges carry their own).
+const DEFAULT_CUSTOM_GLYPH = '⭐'
+
 function emptyRecord(keys, value) {
   return keys.reduce((acc, k) => ((acc[k] = value), acc), {})
+}
+
+// Custom-field IDs use the `custom_` prefix (PRD §7). UUID where available; the fallback keeps
+// IDs unique in any non-secure context without pulling in a dependency.
+function newCustomId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return `custom_${crypto.randomUUID()}`
+  return `custom_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
 }
 
 // `initialDoc` — start from a specific flyer document (e.g. a template preview).
@@ -38,6 +48,9 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
   const [feeMode, setFeeMode] = useState(seed?.feeMode ?? 'fee')
   const [photo, setPhoto] = useState(seed?.photo ?? null)
   const [fonts, setFonts] = useState(seed?.fonts ?? { global: DEFAULT_FLYER_FONT, perElement: {} })
+  // Tier-1 custom fields (M5): ordered definitions; their VALUES live in `fields`/`badges`
+  // (both maps are keyed by arbitrary id, so custom_<uuid> ids slot in alongside built-ins).
+  const [customFields, setCustomFields] = useState(() => seed?.customFields ?? [])
   const [selectedId, setSelectedId] = useState(null)
   const [templateId, setTemplateId] = useState('calm-cream')
 
@@ -47,6 +60,53 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
 
   const toggleBadge = useCallback((binding) => {
     setBadges((b) => ({ ...b, [binding]: !b[binding] }))
+  }, [])
+
+  // ── Custom fields (M5) ───────────────────────────────────────────────────────────────────
+  const addCustomField = useCallback((type = 'text', label = '') => {
+    const id = newCustomId()
+    const def = { id, type, label: label || (type === 'badge' ? 'New badge' : 'New field') }
+    if (type === 'badge') {
+      def.glyph = DEFAULT_CUSTOM_GLYPH
+      setBadges((b) => ({ ...b, [id]: false }))
+    } else {
+      setFields((f) => ({ ...f, [id]: '' }))
+    }
+    setCustomFields((list) => [...list, def])
+    return id
+  }, [])
+
+  const removeCustomField = useCallback((id) => {
+    setCustomFields((list) => list.filter((d) => d.id !== id))
+    setFields((f) => {
+      if (!(id in f)) return f
+      const next = { ...f }
+      delete next[id]
+      return next
+    })
+    setBadges((b) => {
+      if (!(id in b)) return b
+      const next = { ...b }
+      delete next[id]
+      return next
+    })
+  }, [])
+
+  const renameCustomField = useCallback((id, label) => {
+    setCustomFields((list) => list.map((d) => (d.id === id ? { ...d, label } : d)))
+  }, [])
+
+  // Reorder one step; the new order drives both the on-flyer custom block and the badge row.
+  const moveCustomField = useCallback((id, dir) => {
+    setCustomFields((list) => {
+      const i = list.findIndex((d) => d.id === id)
+      if (i < 0) return list
+      const j = dir === 'up' ? i - 1 : i + 1
+      if (j < 0 || j >= list.length) return list
+      const next = [...list]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
   }, [])
 
   const loadPhoto = useCallback((next) => {
@@ -97,6 +157,7 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
       outputSize, setOutputSize,
       fields, setField,
       badges, toggleBadge,
+      customFields, addCustomField, removeCustomField, renameCustomField, moveCustomField,
       fosterVsAdopt, setFosterVsAdopt,
       feeMode, setFeeMode,
       photo, loadPhoto, setPhotoTransform, clearPhoto,
@@ -106,6 +167,7 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
     [
       doc, loadTemplate, templateId, interactive, outputSize, setOutputSize,
       fields, setField, badges, toggleBadge,
+      customFields, addCustomField, removeCustomField, renameCustomField, moveCustomField,
       fosterVsAdopt, feeMode, photo, loadPhoto, setPhotoTransform, clearPhoto,
       fonts, setGlobalFont, setElementFont, fontFor, selectedId, select,
     ]
