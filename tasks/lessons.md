@@ -35,3 +35,24 @@ by design** (fixed-height rows + ellipsis) so it can never overflow a layout; (2
 element (here: trim the hero photo ~30–55px) rather than over-reserving; (4) **screenshot the
 UNUSED state too**, not just the populated one. Accept a documented limit for the extreme combo
 (square templates fit ~1 custom text row; portrait has room) rather than wrecking the common case.
+
+## Worker: wrangler 4.105 doesn't apply `.dev.vars`; derive security values from the request (M6)
+**Symptom:** `.dev.vars` (clean LF/UTF-8, no BOM) was printed by wrangler as "Using secrets defined
+in .dev.vars" and listed in the bindings panel, but `c.env.ENVIRONMENT` stayed `production` (the
+`wrangler.toml [vars]` value) and `MAGIC_LINK_BASE_URL` came through empty. So both `ENVIRONMENT`-
+and `MAGIC_LINK_BASE_URL`-gated logic silently used the wrong values in local dev.
+
+**Fixes (don't depend on `.dev.vars` for runtime correctness):**
+- **Cookie `Secure`** → derive from the request scheme: `new URL(c.req.url).protocol === 'https:'`.
+  Correct in dev (http://localhost → not Secure, so the cookie isn't dropped) and prod (https →
+  Secure). Never gate Secure on an env var that might not load.
+- **Magic-link base URL** → fall back to the Worker's own request origin (on CF Pages the API
+  shares the site domain, so origin is already right in prod). For dev, the Vite proxy injects an
+  `x-bastet-app-origin` header so links/redirects land on :5173 — but **trust that header ONLY in
+  dev** (`!env.RESEND_API_KEY`); trusting a client header to build a *real emailed* link is an
+  account-takeover vector (attacker aims a victim's link at any host).
+
+**Rule:** security-relevant runtime values (cookie flags, redirect/link origins) must come from
+trustworthy request/server signals, never from local-only tooling (`.dev.vars`) that may not load
+and never from spoofable client headers in production. Verify env-dependent branches actually see
+the value you think (`/api/health` echoing `env` caught this immediately).

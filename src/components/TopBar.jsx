@@ -1,5 +1,6 @@
 import Logo from './Logo.jsx'
 import Menu from './ui/Menu.jsx'
+import AccountButton from './auth/AccountButton.jsx'
 import { OUTPUT_SIZES } from '../lib/outputSizes.js'
 import { useEditor } from '../state/EditorContext.jsx'
 
@@ -20,6 +21,9 @@ export default function TopBar({ onDownload, downloading }) {
       <Logo />
 
       <div className="flex items-center gap-2.5">
+        {/* Account (Tier 2 — optional sign-in) */}
+        <AccountButton />
+
         {/* Output size picker */}
         <Menu
           align="right"

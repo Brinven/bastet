@@ -5,21 +5,25 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
 `bastet-PRD.md` + `CLAUDE.md` (spec).
 
 ## Where we are
-- **Push 1 (M1–M4) COMPLETE, committed (`a44a337`), pushed.** **M5 (custom fields) COMPLETE,
-  verified, NOT yet committed** (working-tree changes — commit when ready).
+- **Push 1 (M1–M4) committed `a44a337`. M5 (custom fields) committed + pushed `79a06bd`.
+  M6 (Tier 2 magic-link auth) COMPLETE + verified — NOT yet committed** (working tree).
 - Repo: **https://github.com/Brinven/bastet** (public, MIT). `origin` set, `main` ↔ `origin/main`.
 - The **Tier 1 anonymous (no-account) flyer maker works end-to-end**: land → pick a template →
   add a photo (drag/zoom reframe, never auto-cropped) → fill fields → **add your own custom
   fields** → pick a size → download PNG/PDF. Light + dark, mobile + desktop, 6 templates, 4 sizes.
+- **Tier 2 sign-in works** (magic link → session). Profile/saving is M7.
 
-## Next: Push 2 (M6–M8)  *(M5 ✅ done)*
-- **M5 Custom fields ✅** — "Your own fields" panel: add/rename/reorder/remove Text + Badge fields
-  (`custom_<uuid>`). Custom badges → pill row; custom text → new `custom` element. Tier 1 only;
-  Tier 2 persistence comes in M7. (Dropdown deferred per user.) See todo.md M5 review.
-- **M6 Tier 2 auth** — email → Resend magic link → token verify → session cookie → user record.
-  Stubs ready: `src/worker/lib/crypto.js` (hashToken/generateToken) + `session.js` (requireAuth).
-  ⚠️ **USER PREREQ:** set up a Resend account + a sending domain (e.g. `bastet@axly.com` or a
-  subdomain) with SPF/DKIM **before** this can be tested, or magic-link mail lands in spam.
+## Next: Push 2 (M7–M8)  *(M5 ✅, M6 ✅)*
+- **M5 Custom fields ✅** — "Your own fields" panel; custom badges → pill row, custom text → new
+  `custom` element. Tier 1 only; Tier 2 persistence in M7. See todo.md M5 review.
+- **M6 Tier 2 auth ✅** — magic-link sign in/out. Routes `/api/auth/{request-link,verify,logout}`
+  + `/api/me`. Frontend `AuthContext` + TopBar `AccountButton`. Tokens hashed in D1; 30-day
+  HttpOnly cookie (Secure derived from request scheme). Dev: `request-link` returns the link when
+  `RESEND_API_KEY` is unset; Vite proxy injects `x-bastet-app-origin` (trusted dev-only). See M6
+  review/autopsy. ⚠️ **USER PREREQ for PROD email:** Resend account + verified sending domain
+  (SPF/DKIM, e.g. `bastet@axly.com`), then `wrangler secret put RESEND_API_KEY`. Dev is unblocked.
+- **M7 Tier 2 saving + profile** — rescue profile (auto-populate new flyers), save/load flyers,
+  private templates, **persist custom fields** (M5 defs), R2 thumbnail on save + **R2 CORS**.
 - **M7 Tier 2 saving + profile** — rescue profile auto-populate, save/load flyers, save private
   templates, persist custom fields, R2 thumbnail on save. **Configure R2 CORS here** (deferred
   from M1 — now we'll know the production origin). 10 MB logo / 2 MB thumbnail caps.
@@ -87,6 +91,13 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
 ## Runtime note
 - Dev servers (vite 5173 + wrangler dev 8787) were running this session; they end with the
   session. Next session: `start.bat` (or `npm run dev` + `npm run worker:dev`).
+- **Auth (M6+) needs the Worker running** (`npm run worker:dev`) — the Vite proxy forwards `/api`
+  to it and injects the dev-origin header. With only Vite up, `/api/me` 401s and the app just
+  shows "Sign in" (Tier 1 still fully works). Local D1 already has the schema (`d1:migrate:local`).
+- **`.dev.vars` values are NOT picked up by wrangler 4.105** here (it prints "Using secrets defined
+  in .dev.vars" but `c.env` keeps the toml `[vars]`). Don't rely on it for runtime behavior — the
+  auth code derives cookie-Secure from the request scheme and the link base from origin/proxy-header
+  instead. Prod secrets go via `wrangler secret put`, unaffected.
 
 ## Flagged to the user
 - Set up a **Resend** sending domain (blocks M6 testing).

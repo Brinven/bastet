@@ -85,6 +85,38 @@ for MVP — Tier 2 persistence lands in M7.
 - [x] Build clean (`npm run build`, 630 modules); grep — no console.log of user data.
 - [x] todo + handoff + lessons updated; M5 retained to Ib/Hindsight.
 
+## M6 — Tier 2 Auth (magic link)  *(done)*
+
+Scope = auth only (sign in, know who you are, sign out). Profile editing + saving = M7.
+**Resend domain blocks only production email DELIVERABILITY** — built so the whole flow is
+locally testable now: when `RESEND_API_KEY` is unset, `request-link` returns the link in the
+response (dev) instead of emailing; with the key set (prod), it emails and never leaks the link.
+
+- [x] **Worker `lib/email.js`** — `sendMagicLink(env, email, link)` via Resend API (warm branded
+  HTML). No key → `{ delivered:false }` so the route surfaces the dev link.
+- [x] **Worker `lib/db.js`** — `getOrCreateUserByEmail`, `createMagicLink` (hashed, 15-min),
+  `consumeMagicLink` (valid+unused+unexpired → mark used → user), `createSession` (30-day),
+  `deleteSession`. Expiries via SQL `datetime('now','+N …')` (format matches the comparison).
+- [x] **Worker `routes/auth.js`**: `POST /request-link` (validate→get/create→mint+hash→email or
+  dev-link, always 200), `GET /verify?token=` (consume→session→`bastet_session` cookie HttpOnly/
+  SameSite=Lax/Secure-by-scheme/30-day→302), `POST /logout` (delete session + clear cookie).
+- [x] **Worker `routes/me.js`** — `GET /api/me` (requireAuth) → profile allow-list. Mounted both.
+- [x] **Frontend** `state/AuthContext.jsx` (provider+`useAuth`: /api/me, requestLink, logout,
+  cleans `?auth=` marker) + `components/auth/AccountButton.jsx` (TopBar sign-in popover →
+  "check your email"+dev link; signed-in → avatar/email + Sign out). Wrapped `App`.
+- [x] **Config**: `.dev.vars` + `.env.example` updated. **wrangler 4.105 ignored `.dev.vars`
+  values** → robust base-URL handling instead: prod uses `MAGIC_LINK_BASE_URL`||worker-origin
+  (same domain on CF); dev uses a Vite-proxy `x-bastet-app-origin` header (trusted ONLY in dev —
+  see autopsy). Cookie Secure derived from request scheme, not env.
+- [x] **Verified**: curl flow (request-link→verify Set-Cookie→/api/me 200→logout→401; magic token
+  single-use → `invalid` on reuse) + **token HASHED in D1** (64-char SHA-256, raw was 96). Browser
+  (Playwright): sign-in popover → dev link → lands signed in, `?auth` cleaned, account menu.
+- [x] Build clean; no console.log of tokens/user data; todo/handoff/lessons updated; M6 retained.
+
+> **USER PREREQ for production email:** set up a **Resend** account + verified sending domain
+> (SPF/DKIM, e.g. `bastet@axly.com`), then `wrangler secret put RESEND_API_KEY` (+ optionally
+> `MAGIC_LINK_FROM`, `MAGIC_LINK_BASE_URL`). Until then, prod sign-in can't email; dev is unblocked.
+
 ---
 
 ## Review
@@ -196,6 +228,31 @@ something. Reserving a fixed empty lane made the no-custom common case look gapp
 trim the photo a little and keep the lane modest (clean for 0–1 rows). Lesson: when a fixed-layout
 canvas is full, new optional content trades against either the common-case look or the photo —
 pick deliberately and verify the *unused* state, not just the used one.
+
+### M6 — Tier 2 Auth (magic link) ✅ (2026-06-26)
+Passwordless magic-link auth. `POST /api/auth/request-link` validates the email, get-or-creates the
+user, mints a token, stores its SHA-256 hash (15-min, single-use), and emails a link via Resend —
+or, when `RESEND_API_KEY` is unset, returns the link in the response so dev works without email.
+`GET /api/auth/verify` consumes the token, opens a 30-day session, sets an HttpOnly `bastet_session`
+cookie, and 302s back to the app. `GET /api/me` (requireAuth) returns the rescue-profile allow-list;
+`POST /api/auth/logout` deletes the session + clears the cookie. Frontend: an unobtrusive TopBar
+sign-in popover (Tier 1 stays the default) and a signed-in account menu, backed by `AuthContext`.
+
+**Verified:** full curl flow (cookie set → /api/me 200 → logout → 401; reused magic token → invalid)
++ **token hashed in D1** (64-char hash, 96-char raw never stored) + Playwright browser sign-in.
+
+**Bug autopsy / decisions:**
+- **`.dev.vars` ignored by wrangler 4.105** — `ENVIRONMENT` stayed `production` and
+  `MAGIC_LINK_BASE_URL` came through empty despite wrangler printing "Using secrets defined in
+  .dev.vars". Rather than depend on it: (a) the **Secure** cookie flag is derived from the request
+  scheme (`https:` → Secure), correct in both dev (http) and prod (https); (b) the **base URL** for
+  links/redirects falls back to the Worker's own origin (correct on CF Pages, same domain) and, in
+  dev only, reads an `x-bastet-app-origin` header injected by the Vite proxy so links land on :5173.
+- **Security:** the dev-origin header is trusted **only when `RESEND_API_KEY` is unset** (dev). In
+  prod, trusting a client header to build the *emailed* link would let an attacker aim a victim's
+  magic link at any host (account-takeover) — so prod uses server config / origin only.
+- Lesson: don't let local tooling quirks (`.dev.vars`) leak into runtime correctness — derive
+  security-relevant values (cookie Secure, link origin) from trustworthy request/server signals.
 
 ---
 

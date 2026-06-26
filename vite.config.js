@@ -8,7 +8,13 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:8787',
+      // Tell the Worker the real app origin so dev magic links/redirects land on :5173, not the
+      // Worker's :8787. The Worker only trusts this header in dev (no RESEND_API_KEY); see auth.js.
+      '/api': {
+        target: 'http://localhost:8787',
+        changeOrigin: false,
+        headers: { 'x-bastet-app-origin': 'http://localhost:5173' },
+      },
     },
   },
 })

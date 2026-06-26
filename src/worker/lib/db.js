@@ -34,3 +34,58 @@ export async function getApprovedTemplate(db, id) {
     .run()
   return row
 }
+
+// ── Tier 2 auth (M6) ─────────────────────────────────────────────────────────────────────────
+// Expiries are computed in SQL via datetime('now', ...) so they share the exact format and UTC
+// basis of the `expires_at > datetime('now')` comparisons (mixing JS ISO strings would break the
+// lexicographic compare — 'T'/'Z' vs the space-separated SQLite format).
+
+export async function getOrCreateUserByEmail(db, email) {
+  const existing = await db.prepare(`SELECT * FROM users WHERE email = ?`).bind(email).first()
+  if (existing) return existing
+  const id = crypto.randomUUID()
+  await db.prepare(`INSERT INTO users (id, email) VALUES (?, ?)`).bind(id, email).run()
+  return await db.prepare(`SELECT * FROM users WHERE id = ?`).bind(id).first()
+}
+
+export async function createMagicLink(db, userId, tokenHash) {
+  const id = crypto.randomUUID()
+  await db
+    .prepare(
+      `INSERT INTO magic_links (id, user_id, token_hash, expires_at)
+       VALUES (?, ?, ?, datetime('now', '+15 minutes'))`
+    )
+    .bind(id, userId, tokenHash)
+    .run()
+  return id
+}
+
+// Validate + consume (single-use, unexpired) a magic link by token hash. Returns the user or null.
+export async function consumeMagicLink(db, tokenHash) {
+  const link = await db
+    .prepare(
+      `SELECT * FROM magic_links
+         WHERE token_hash = ? AND used = 0 AND expires_at > datetime('now')`
+    )
+    .bind(tokenHash)
+    .first()
+  if (!link) return null
+  await db.prepare(`UPDATE magic_links SET used = 1 WHERE id = ?`).bind(link.id).run()
+  return await db.prepare(`SELECT * FROM users WHERE id = ?`).bind(link.user_id).first()
+}
+
+export async function createSession(db, userId, tokenHash) {
+  const id = crypto.randomUUID()
+  await db
+    .prepare(
+      `INSERT INTO sessions (id, user_id, token_hash, expires_at)
+       VALUES (?, ?, ?, datetime('now', '+30 days'))`
+    )
+    .bind(id, userId, tokenHash)
+    .run()
+  return id
+}
+
+export async function deleteSession(db, tokenHash) {
+  await db.prepare(`DELETE FROM sessions WHERE token_hash = ?`).bind(tokenHash).run()
+}
