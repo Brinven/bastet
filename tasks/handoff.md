@@ -6,12 +6,11 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
 
 ## Where we are
 - Commits on `main` (all pushed): Push 1 (M1–M4) `a44a337` · M5 `79a06bd` · M6 `5522289` ·
-  M7a `e9801b5` · M7b `f191da6` · M7c `c830e42` · M7 logo-on-flyer `b1872cf`.
-- **M8 community submissions + admin is CODE-COMPLETE + verified locally but NOT yet committed**
-  (working tree has the changes). Commit it next.
-- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`.
-- **All MVP features (M1–M8) are done.** Remaining = release: README, CONTRIBUTING, one-click CF
-  deploy button, prod deploy (+ Resend domain for prod email).
+  M7a `e9801b5` · M7b `f191da6` · M7c `c830e42` · M7 logo-on-flyer `b1872cf` ·
+  **M8 community submissions + admin `8a59310`**.
+- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`, clean tree.
+- **All MVP features (M1–M8) are done + pushed.** Remaining = release: README, CONTRIBUTING, one-click
+  CF deploy button, prod deploy (+ Resend domain for prod email).
 - **Tier 1 (anonymous) flyer maker** works end-to-end: land → pick a template → add a photo
   (drag/zoom reframe, never auto-cropped) → fill fields → **add your own custom fields** → pick a
   size → download PNG/PDF. Light + dark, mobile + desktop, 6 templates, 4 sizes.
@@ -49,7 +48,7 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
   right. Session-level (same logo across all the rescue's flyers) → NOT stored per flyer/template.
   Verified (Playwright): upload via profile modal → shows on the band → Download PNG still exports
   (no taint). **This closes M7 (a/b/c + follow-up).**
-- **M8 — Community submissions + admin** ✅ DONE (commit pending). Submit (Tier 2) via Save menu →
+- **M8 — Community submissions + admin** ✅ DONE (`8a59310`). Submit (Tier 2) via Save menu →
   "Share with community" (`ShareTemplateModal`: name/category/mood/description) → `POST /api/templates`
   → status `pending`; the public row stores only `author_display`+`rescue_name` (NEVER email). Admin
   router `/api/admin/templates/{pending,:id/thumb,:id/approve,:id/reject}` gated by `requireAdmin`
