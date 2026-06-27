@@ -6,10 +6,9 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
 
 ## Where we are
 - Commits on `main` (all pushed): Push 1 (M1–M4) `a44a337` · M5 custom fields `79a06bd` ·
-  M6 magic-link auth `5522289` · **M7a rescue profile + logo + auto-populate `e9801b5`**.
-- **M7b save/load flyers is CODE-COMPLETE + verified locally but NOT yet committed** (working tree
-  has the changes — see "Conventions"/git below). Commit it next.
-- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`.
+  M6 magic-link auth `5522289` · M7a rescue profile + logo + auto-populate `e9801b5` ·
+  **M7b save/load flyers `f191da6`**.
+- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`, clean tree.
 - **Tier 1 (anonymous) flyer maker** works end-to-end: land → pick a template → add a photo
   (drag/zoom reframe, never auto-cropped) → fill fields → **add your own custom fields** → pick a
   size → download PNG/PDF. Light + dark, mobile + desktop, 6 templates, 4 sizes.
@@ -18,7 +17,7 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
   (My flyers gallery) — photo bytes + a thumbnail stored in R2, full state round-trips.
 
 ## Next: finish M7, then M8 + release
-- **M7b — Save / load flyers** ✅ DONE (commit pending). As-built: Worker `POST/GET/GET:id/
+- **M7b — Save / load flyers** ✅ DONE (`f191da6`). As-built: Worker `POST/GET/GET:id/
   GET:id/thumb/GET:id/photo/DELETE /api/me/flyers` (all `requireAuth`, scoped to the session user).
   `flyer_data` JSON in D1 = `{version,templateId,nativeDoc,outputSize,fields,badges,customFields,
   fosterVsAdopt,feeMode,fonts,photo:{transform+hasBytes}|null}`; the **original photo bytes** +
