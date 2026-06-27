@@ -7,10 +7,8 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
 ## Where we are
 - Commits on `main` (all pushed): Push 1 (M1–M4) `a44a337` · M5 custom fields `79a06bd` ·
   M6 magic-link auth `5522289` · M7a rescue profile + logo + auto-populate `e9801b5` ·
-  M7b save/load flyers `f191da6`.
-- **M7c private templates + custom-field persistence is CODE-COMPLETE + verified locally but NOT yet
-  committed** (working tree has the changes). Commit it next.
-- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`.
+  M7b save/load flyers `f191da6` · **M7c private templates + custom-field persistence `c830e42`**.
+- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`, clean tree.
 - **Tier 1 (anonymous) flyer maker** works end-to-end: land → pick a template → add a photo
   (drag/zoom reframe, never auto-cropped) → fill fields → **add your own custom fields** → pick a
   size → download PNG/PDF. Light + dark, mobile + desktop, 6 templates, 4 sizes.
@@ -30,7 +28,7 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
   account menu (load rebuilds the photo from R2 bytes via a data URL → no canvas taint; delete has
   inline confirm). `EditorContext.loadFlyer(snap, photoState)` swaps all state at once;
   `nativeDoc` now exposed. New: `src/lib/flyersApi.js`, `src/components/flyers/*`.
-- **M7c — Private templates + persist custom fields** ✅ DONE (commit pending). Worker `POST/GET/
+- **M7c — Private templates + persist custom fields** ✅ DONE (`c830e42`). Worker `POST/GET/
   GET:id/GET:id/thumb/DELETE /api/me/templates` (requireAuth, scoped; cap 50). `template_data` JSON =
   `{version,nativeDoc,outputSize,fonts,customFields(defs),templateId}` — **layout only, no animal
   content, no photo**; thumbnail (current canvas) → R2 `templates/<u>/<id>/thumb`. Frontend: TopBar
