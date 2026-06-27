@@ -13,8 +13,8 @@ const SIZE_HINTS = {
 }
 
 // Sticky top bar: brand (left) + output-size picker and the primary Download action (right).
-// Signed-in (Tier 2) users also get a Save action that keeps the flyer to their account.
-export default function TopBar({ onDownload, downloading, onSaveFlyer }) {
+// Signed-in (Tier 2) users also get a Save menu (this flyer, or its look as a template).
+export default function TopBar({ onDownload, downloading, onSaveFlyer, onSaveTemplate }) {
   const { doc, outputSize, setOutputSize } = useEditor()
   const { user } = useAuth()
   const sizeLabel = OUTPUT_SIZES[doc.outputSize]?.label ?? 'Flyer'
@@ -76,17 +76,40 @@ export default function TopBar({ onDownload, downloading, onSaveFlyer }) {
           )}
         </Menu>
 
-        {/* Save flyer (Tier 2 only) */}
+        {/* Save (Tier 2 only) — this flyer, or its look as a reusable template */}
         {user && (
-          <button
-            type="button"
-            onClick={onSaveFlyer}
-            aria-label="Save flyer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-2 text-[13px] font-semibold text-ink-soft transition hover:bg-sunken sm:px-3.5"
+          <Menu
+            align="right"
+            trigger={({ toggle, open }) => (
+              <button
+                type="button"
+                onClick={toggle}
+                aria-label="Save"
+                aria-haspopup="menu"
+                aria-expanded={open}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-2 text-[13px] font-semibold text-ink-soft transition hover:bg-sunken sm:px-3.5"
+              >
+                <SaveIcon />
+                <span className="hidden sm:inline">Save</span>
+                <Caret open={open} />
+              </button>
+            )}
           >
-            <SaveIcon />
-            <span className="hidden sm:inline">Save</span>
-          </button>
+            {(close) => (
+              <div className="grid gap-0.5">
+                <MenuAction
+                  label="Save flyer"
+                  hint="This animal, to reopen later"
+                  onClick={() => { onSaveFlyer(); close() }}
+                />
+                <MenuAction
+                  label="Save as template"
+                  hint="Just the look, to reuse"
+                  onClick={() => { onSaveTemplate(); close() }}
+                />
+              </div>
+            )}
+          </Menu>
         )}
 
         {/* Download (PNG / PDF) */}

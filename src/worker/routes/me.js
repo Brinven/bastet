@@ -3,12 +3,13 @@ import { requireAuth } from '../lib/session.js'
 import {
   updateUserProfile, setUserLogoKey, getUserById,
   countSavedFlyers, createSavedFlyer, listSavedFlyers, getSavedFlyer, deleteSavedFlyer,
+  countUserTemplates, createUserTemplate, listUserTemplates, getUserTemplate, deleteUserTemplate,
 } from '../lib/db.js'
 import { putObject, getObject, deleteObject } from '../lib/r2.js'
 
 // Tier 2 "current user" routes. M6 = read profile; M7a adds profile edit + rescue logo (R2);
-// M7b adds saved flyers (flyer_data JSON in D1 + thumbnail/photo bytes in R2). Private templates
-// arrive in M7c. Everything here is behind requireAuth and scoped to the session user.
+// M7b adds saved flyers (flyer_data JSON in D1 + thumbnail/photo bytes in R2); M7c adds private
+// templates (layout-only). Everything here is behind requireAuth and scoped to the session user.
 const me = new Hono()
 me.use('*', requireAuth)
 
@@ -16,10 +17,13 @@ const MAX_LOGO = 10 * 1024 * 1024 // 10 MB (PRD)
 const MAX_THUMB = 2 * 1024 * 1024 // 2 MB (PRD)
 const MAX_PHOTO = 10 * 1024 * 1024 // 10 MB — original animal photo bytes stored with the flyer
 const MAX_FLYERS = 50 // per-user storage guard (worst case ~50 × ~10 MB; tune if it grows)
+const MAX_TEMPLATES = 50 // per-user private-template guard
 
 // Deterministic R2 keys for a flyer's assets, scoped under the owning user.
 const thumbKey = (userId, flyerId) => `flyers/${userId}/${flyerId}/thumb`
 const photoKey = (userId, flyerId) => `flyers/${userId}/${flyerId}/photo`
+// Private-template thumbnail key (layout-only → thumbnail, no photo).
+const tplThumbKey = (userId, tplId) => `templates/${userId}/${tplId}/thumb`
 
 // Public-facing user shape — explicit allow-list, never the raw row.
 function publicUser(u) {
@@ -190,6 +194,94 @@ me.delete('/flyers/:id', async (c) => {
   await deleteObject(c.env.USER_ASSETS_BUCKET, thumbKey(u.id, id))
   await deleteObject(c.env.USER_ASSETS_BUCKET, photoKey(u.id, id))
   await deleteSavedFlyer(c.env.DB, u.id, id)
+  return c.json({ ok: true })
+})
+
+// ── Private templates (M7c) ────────────────────────────────────────────────────────────────────
+// A user's reusable layout (no animal content, no photo). Mirrors the saved-flyer shape minus the
+// photo object.
+
+function templateSummary(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    has_thumbnail: !!row.thumbnail_key,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+// POST /api/me/templates — save a private template. multipart: name, template_data (JSON), thumb.
+me.post('/templates', async (c) => {
+  const u = c.get('user')
+
+  if ((await countUserTemplates(c.env.DB, u.id)) >= MAX_TEMPLATES) {
+    return c.json(
+      { error: `You can save up to ${MAX_TEMPLATES} templates. Delete one to make room.` },
+      409
+    )
+  }
+
+  const form = await c.req.parseBody()
+  const name = clampStr(form['name'], 120) || 'Untitled Template'
+  const dataRaw = form['template_data']
+  if (typeof dataRaw !== 'string' || !dataRaw) return c.json({ error: 'Missing template data.' }, 400)
+  let parsed
+  try {
+    parsed = JSON.parse(dataRaw)
+  } catch {
+    return c.json({ error: 'Invalid template data.' }, 400)
+  }
+
+  const thumb = form['thumb']
+  if (!thumb || typeof thumb === 'string') return c.json({ error: 'Missing thumbnail.' }, 400)
+  if (thumb.size > MAX_THUMB) return c.json({ error: 'Thumbnail too large.' }, 413)
+
+  const id = crypto.randomUUID()
+  const tKey = tplThumbKey(u.id, id)
+  await putObject(c.env.USER_ASSETS_BUCKET, tKey, await thumb.arrayBuffer(), thumb.type || 'image/png')
+
+  const row = await createUserTemplate(c.env.DB, u.id, id, {
+    name,
+    template_data: JSON.stringify(parsed),
+    thumbnail_key: tKey,
+  })
+  return c.json({ template: templateSummary(row) }, 201)
+})
+
+// GET /api/me/templates — list the user's private templates (summaries only).
+me.get('/templates', async (c) => {
+  const u = c.get('user')
+  const rows = await listUserTemplates(c.env.DB, u.id)
+  return c.json({ templates: rows.map(templateSummary) })
+})
+
+// GET /api/me/templates/:id — full template incl. parsed template_data (owner only).
+me.get('/templates/:id', async (c) => {
+  const u = c.get('user')
+  const row = await getUserTemplate(c.env.DB, u.id, c.req.param('id'))
+  if (!row) return c.json({ error: 'Not found' }, 404)
+  return c.json({
+    template: { ...templateSummary(row), template_data: safeJsonObject(row.template_data) },
+  })
+})
+
+// GET /api/me/templates/:id/thumb — serve the template thumbnail from R2 (owner only).
+me.get('/templates/:id/thumb', async (c) => {
+  const u = c.get('user')
+  const row = await getUserTemplate(c.env.DB, u.id, c.req.param('id'))
+  if (!row?.thumbnail_key) return c.json({ error: 'Not found' }, 404)
+  return serveObject(c, row.thumbnail_key)
+})
+
+// DELETE /api/me/templates/:id — remove the template + its R2 thumbnail (owner only).
+me.delete('/templates/:id', async (c) => {
+  const u = c.get('user')
+  const id = c.req.param('id')
+  const row = await getUserTemplate(c.env.DB, u.id, id)
+  if (!row) return c.json({ error: 'Not found' }, 404)
+  await deleteObject(c.env.USER_ASSETS_BUCKET, tplThumbKey(u.id, id))
+  await deleteUserTemplate(c.env.DB, u.id, id)
   return c.json({ ok: true })
 })
 

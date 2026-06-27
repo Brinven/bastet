@@ -5,11 +5,13 @@ import { useFonts } from '../../hooks/useFonts.js'
 import { loadImageFile, isLowRes } from '../../lib/image.js'
 import { exportToPNG, exportToPDF, exportThumbnailBlob } from '../../lib/export.js'
 import { saveFlyer } from '../../lib/flyersApi.js'
+import { saveUserTemplate } from '../../lib/userTemplatesApi.js'
 import TopBar from '../TopBar.jsx'
 import EditorCanvas from './EditorCanvas.jsx'
 import ControlPanel from '../fields/ControlPanel.jsx'
 import TemplateGallery from '../templates/TemplateGallery.jsx'
 import SaveFlyerModal from '../flyers/SaveFlyerModal.jsx'
+import SaveTemplateModal from '../templates/SaveTemplateModal.jsx'
 
 // Fill contact fields from the signed-in rescue profile once per login (empties only).
 function ProfileAutofill() {
@@ -27,6 +29,42 @@ function ProfileAutofill() {
   return null
 }
 
+// Tier 2 custom-field definitions ↔ rescue profile (M7c). Load the saved defs once per login (only
+// if the volunteer hasn't already made some this session), and persist defs back to the profile
+// when they EDIT them in the panel (debounced; gated on the rev counter so loading a flyer/template
+// never overwrites their saved defaults).
+function CustomFieldsSync() {
+  const { user, updateProfile } = useAuth()
+  const { customFields, customFieldsRev, setCustomFieldsFromProfile } = useEditor()
+  const loadedFor = useRef(null)
+  const savedRev = useRef(0)
+
+  useEffect(() => {
+    if (user && loadedFor.current !== user.id) {
+      loadedFor.current = user.id
+      savedRev.current = customFieldsRev // baseline: the load below is programmatic (no rev bump)
+      if (user.custom_fields?.length && customFields.length === 0) {
+        setCustomFieldsFromProfile(user.custom_fields)
+      }
+    } else if (!user) {
+      loadedFor.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, setCustomFieldsFromProfile])
+
+  useEffect(() => {
+    if (!user) return
+    if (customFieldsRev === savedRev.current) return
+    const t = setTimeout(() => {
+      savedRev.current = customFieldsRev
+      updateProfile({ custom_fields: customFields })
+    }, 800)
+    return () => clearTimeout(t)
+  }, [user, customFields, customFieldsRev, updateProfile])
+
+  return null
+}
+
 export default function Editor() {
   useFonts() // load the curated flyer fonts + track readiness for export
   const editor = useEditor()
@@ -39,6 +77,7 @@ export default function Editor() {
   const [lowRes, setLowRes] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
   const [tab, setTab] = useState('edit') // 'edit' | 'templates'
 
   const openDialog = () => fileInputRef.current?.click()
@@ -95,6 +134,22 @@ export default function Editor() {
     return await saveFlyer({ name, outputSize: doc.outputSize, snapshot, thumbBlob, photoBlob })
   }
 
+  // Save the LAYOUT only (look + custom-field lanes) as a reusable private template (M7c) — no
+  // animal content, no photo bytes. Thumbnail captures the current canvas as a preview.
+  const handleSaveTemplate = async (name) => {
+    if (!stageRef.current) return { ok: false, error: 'Canvas not ready.' }
+    const snapshot = {
+      version: 1,
+      templateId,
+      nativeDoc,
+      outputSize: doc.outputSize,
+      fonts,
+      customFields,
+    }
+    const thumbBlob = await exportThumbnailBlob(stageRef, doc.outputSize)
+    return await saveUserTemplate({ name, snapshot, thumbBlob })
+  }
+
   const handleDownload = async (format = 'png') => {
     if (!stageRef.current) return
     setDownloading(true)
@@ -120,13 +175,26 @@ export default function Editor() {
   return (
     <div className="flex min-h-screen flex-col bg-bg text-ink lg:h-screen lg:overflow-hidden">
       <ProfileAutofill />
-      <TopBar onDownload={handleDownload} downloading={downloading} onSaveFlyer={() => setSaveOpen(true)} />
+      <CustomFieldsSync />
+      <TopBar
+        onDownload={handleDownload}
+        downloading={downloading}
+        onSaveFlyer={() => setSaveOpen(true)}
+        onSaveTemplate={() => setSaveTemplateOpen(true)}
+      />
 
       <SaveFlyerModal
         open={saveOpen}
         onClose={() => setSaveOpen(false)}
         defaultName={fields.animal_name ? `${fields.animal_name} — flyer` : 'Untitled Flyer'}
         onSave={handleSaveFlyer}
+      />
+
+      <SaveTemplateModal
+        open={saveTemplateOpen}
+        onClose={() => setSaveTemplateOpen(false)}
+        defaultName="My template"
+        onSave={handleSaveTemplate}
       />
 
       <input

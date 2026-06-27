@@ -51,6 +51,11 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
   // Tier-1 custom fields (M5): ordered definitions; their VALUES live in `fields`/`badges`
   // (both maps are keyed by arbitrary id, so custom_<uuid> ids slot in alongside built-ins).
   const [customFields, setCustomFields] = useState(() => seed?.customFields ?? [])
+  // Revision counter bumped ONLY by direct user edits to the custom-field DEFINITIONS (add/remove/
+  // rename/move). Programmatic loads (sign-in profile load, loadFlyer, applyUserTemplate) set
+  // customFields WITHOUT bumping this — so the Tier 2 auto-persist (M7c) saves the user's intent
+  // and never re-saves just because they opened a saved flyer/template.
+  const [customFieldsRev, setCustomFieldsRev] = useState(0)
   const [selectedId, setSelectedId] = useState(null)
   const [templateId, setTemplateId] = useState('calm-cream')
 
@@ -75,6 +80,8 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
   }, [])
 
   // ── Custom fields (M5) ───────────────────────────────────────────────────────────────────
+  const bumpRev = useCallback(() => setCustomFieldsRev((n) => n + 1), [])
+
   const addCustomField = useCallback((type = 'text', label = '') => {
     const id = newCustomId()
     const def = { id, type, label: label || (type === 'badge' ? 'New badge' : 'New field') }
@@ -85,8 +92,9 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
       setFields((f) => ({ ...f, [id]: '' }))
     }
     setCustomFields((list) => [...list, def])
+    bumpRev()
     return id
-  }, [])
+  }, [bumpRev])
 
   const removeCustomField = useCallback((id) => {
     setCustomFields((list) => list.filter((d) => d.id !== id))
@@ -102,11 +110,13 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
       delete next[id]
       return next
     })
-  }, [])
+    bumpRev()
+  }, [bumpRev])
 
   const renameCustomField = useCallback((id, label) => {
     setCustomFields((list) => list.map((d) => (d.id === id ? { ...d, label } : d)))
-  }, [])
+    bumpRev()
+  }, [bumpRev])
 
   // Reorder one step; the new order drives both the on-flyer custom block and the badge row.
   const moveCustomField = useCallback((id, dir) => {
@@ -119,7 +129,30 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
       ;[next[i], next[j]] = [next[j], next[i]]
       return next
     })
+    bumpRev()
+  }, [bumpRev])
+
+  // Seed empty VALUES for a set of custom-field defs (used by programmatic loads). Never clobbers
+  // a value that's already present for the same id.
+  const seedCustomValues = useCallback((defs) => {
+    setFields((f) => {
+      const n = { ...f }
+      for (const d of defs) if (d.type !== 'badge' && !(d.id in n)) n[d.id] = ''
+      return n
+    })
+    setBadges((b) => {
+      const n = { ...b }
+      for (const d of defs) if (d.type === 'badge' && !(d.id in n)) n[d.id] = false
+      return n
+    })
   }, [])
+
+  // Load custom-field DEFINITIONS from a signed-in rescue profile (M7c). Programmatic → no rev bump.
+  const setCustomFieldsFromProfile = useCallback((defs) => {
+    if (!Array.isArray(defs) || defs.length === 0) return
+    setCustomFields(defs)
+    seedCustomValues(defs)
+  }, [seedCustomValues])
 
   const loadPhoto = useCallback((next) => {
     setPhoto({ ...next, scale: 1, offsetX: 0, offsetY: 0 })
@@ -182,13 +215,30 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
     setSelectedId(null)
   }, [])
 
+  // Apply a private template (M7c): swap the LAYOUT (nativeDoc/outputSize/fonts) and adopt its
+  // custom-field definitions, but KEEP the user's animal content (field values, badges, photo) —
+  // same "keep content, change look" model as loadTemplate. Programmatic → no rev bump.
+  const applyUserTemplate = useCallback((snap) => {
+    if (!snap?.nativeDoc) return
+    setNativeDoc(snap.nativeDoc)
+    setOutputSizeState(snap.outputSize || snap.nativeDoc.outputSize || 'instagram_post')
+    setTemplateId(snap.templateId || 'custom')
+    if (snap.fonts) setFonts(snap.fonts)
+    if (Array.isArray(snap.customFields) && snap.customFields.length) {
+      setCustomFields(snap.customFields)
+      seedCustomValues(snap.customFields)
+    }
+    setSelectedId(null)
+  }, [seedCustomValues])
+
   const value = useMemo(
     () => ({
-      doc, nativeDoc, loadTemplate, loadFlyer, templateId, interactive,
+      doc, nativeDoc, loadTemplate, loadFlyer, applyUserTemplate, templateId, interactive,
       outputSize, setOutputSize,
       fields, setField, applyProfile,
       badges, toggleBadge,
-      customFields, addCustomField, removeCustomField, renameCustomField, moveCustomField,
+      customFields, customFieldsRev, addCustomField, removeCustomField, renameCustomField,
+      moveCustomField, setCustomFieldsFromProfile,
       fosterVsAdopt, setFosterVsAdopt,
       feeMode, setFeeMode,
       photo, loadPhoto, setPhotoTransform, clearPhoto,
@@ -196,9 +246,11 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
       selectedId, select,
     }),
     [
-      doc, nativeDoc, loadTemplate, loadFlyer, templateId, interactive, outputSize, setOutputSize,
+      doc, nativeDoc, loadTemplate, loadFlyer, applyUserTemplate, templateId, interactive,
+      outputSize, setOutputSize,
       fields, setField, applyProfile, badges, toggleBadge,
-      customFields, addCustomField, removeCustomField, renameCustomField, moveCustomField,
+      customFields, customFieldsRev, addCustomField, removeCustomField, renameCustomField,
+      moveCustomField, setCustomFieldsFromProfile,
       fosterVsAdopt, feeMode, photo, loadPhoto, setPhotoTransform, clearPhoto,
       fonts, setGlobalFont, setElementFont, fontFor, selectedId, select,
     ]

@@ -182,11 +182,37 @@ save → My flyers thumbnail loads → mutate name → Open restores name (Zephy
 500s only from PowerShell `Invoke-WebRequest -Form`, suspect the test harness, not the handler —
 re-test with `curl.exe` before "fixing" working code.
 
-### M7c — Private templates + persist custom fields  *(chunk 3)*
-- [ ] Worker `POST /api/me/templates` (template_data + thumbnail), `GET /api/me/templates`.
-- [ ] Frontend: "Save as template" (layout, no animal content) + private templates in the gallery.
-- [ ] Custom-field definitions persist to the profile (covered by M7a custom_fields) + load on sign in.
-- [ ] Verify; build clean; update todo/handoff/lessons; retain M7 closeout.
+### M7c — Private templates + persist custom fields  *(chunk 3 — done ✅)*
+
+**Part 1 — Private templates (layout reuse, no animal content).** `template_data` JSON =
+`{ version, nativeDoc, outputSize, fonts, customFields(defs), templateId }` — NO field values, NO
+photo. Thumbnail = current canvas snapshot → R2 (same worker-proxied pattern as flyers).
+- [x] db.js: `createUserTemplate`, `listUserTemplates`, `getUserTemplate`, `deleteUserTemplate`, `countUserTemplates`.
+- [x] me.js routes (requireAuth, scoped): `POST /api/me/templates` (multipart: name, template_data, thumb;
+  cap 50), `GET /api/me/templates` (summaries), `GET :id` (full), `GET :id/thumb`, `DELETE :id`.
+- [x] lib/userTemplatesApi.js: save/list/get/delete.
+- [x] EditorContext: `applyUserTemplate(snap)` (set nativeDoc/outputSize/fonts/customFields, **keep**
+  animal content; seed empty values for new custom defs; does NOT bump rev).
+- [x] `SaveTemplateModal` (name → layout snapshot + thumb → save). TopBar **Save** is now a menu:
+  "Save flyer" / "Save as template" (signed-in only).
+- [x] `UserTemplates` section in the Templates tab (signed-in): thumbnails, Use / delete (inline confirm).
+
+**Part 2 — Persist custom-field definitions to the rescue profile.**
+- [x] EditorContext: `customFieldsRev` counter bumped ONLY by user edits (add/remove/rename/move);
+  `setCustomFieldsFromProfile(defs)` (load defs + seed empty values, no rev bump).
+- [x] `CustomFieldsSync` bridge in Editor: load defs from profile once per login (only if local empty);
+  debounce-PATCH `{ custom_fields }` (via `updateProfile`) when `customFieldsRev` changes. Loading a
+  flyer/template never persists (rev unchanged) → defaults aren't clobbered.
+
+**Verified:** curl — `PATCH/GET /api/me` custom_fields round-trips; template CRUD (201 → list → full
+template_data → thumb 200 → no-cookie 401 → delete → 404). Playwright — save "LookA" → switch base
+template + remove field → apply LookA restores the custom lane (`["ChipNo"]`); add "PersistMe" → reload
+→ reloads from profile (`["ChipNo","PersistMe"]`). Build clean.
+
+**Design note (rev counter):** the only safe way to tell a *user edit* of the custom-field defs from a
+*programmatic set* (sign-in load / loadFlyer / applyUserTemplate) is an explicit revision counter the
+4 user actions bump and the loaders don't. The persist effect watches the counter, so opening a saved
+flyer or template never silently overwrites the rescue's saved default fields.
 
 ---
 

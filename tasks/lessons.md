@@ -86,3 +86,21 @@ this could get popular; worst case ~50×10 MB/user, tunable in one constant (`MA
   directly would be same-origin too here, but data URL is the belt-and-suspenders choice.)
 - The HTMLImageElement is non-serializable — store only `photo.src`'s *transform* in JSON and rebuild
   the element on load; never try to JSON a live `Image`/`File`.
+
+## State: auto-persist must distinguish a USER edit from a PROGRAMMATIC set (M7c, 2026-06-27)
+**Context:** custom-field definitions should auto-save to the rescue profile when the volunteer edits
+them, and load back on sign-in. But `customFields` state also changes programmatically — sign-in
+loads it from the profile, and `loadFlyer`/`applyUserTemplate` set it from a snapshot. A naive
+`useEffect(() => persist(customFields), [customFields])` would re-save on every one of those, so
+opening an old flyer or a template would silently overwrite the rescue's saved default fields.
+
+**Fix:** a `customFieldsRev` revision counter that **only the user-edit actions bump**
+(add/remove/rename/move); the programmatic setters (`setCustomFieldsFromProfile`, `loadFlyer`,
+`applyUserTemplate`) change `customFields` WITHOUT bumping it. The debounced persist effect watches
+the *counter*, not the array, and a `savedRev` ref baselines it at login so the initial profile-load
+doesn't echo back. Result: only genuine edits persist; loads never clobber defaults.
+
+**Rule:** when an effect must fire for *user-initiated* changes but not *programmatic* ones to the
+same state, you cannot tell them apart from the value alone — add an explicit intent signal (a rev
+counter bumped only by the user actions, or an action-typed dispatch) and key the effect off that.
+Same idea applies to "dirty" flags, autosave, and analytics-on-change.

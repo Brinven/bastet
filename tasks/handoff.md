@@ -1,4 +1,4 @@
-# Bastet — Handoff (Push 2 in progress — M5 ✅ · M6 ✅ · M7a ✅ · M7b ✅)
+# Bastet — Handoff (Push 2 in progress — M5 ✅ · M6 ✅ · M7a ✅ · M7b ✅ · M7c ✅)
 
 **Read this first when resuming.** Deeper detail lives in: `tasks/todo.md` (milestone status +
 decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev gotchas),
@@ -7,14 +7,17 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
 ## Where we are
 - Commits on `main` (all pushed): Push 1 (M1–M4) `a44a337` · M5 custom fields `79a06bd` ·
   M6 magic-link auth `5522289` · M7a rescue profile + logo + auto-populate `e9801b5` ·
-  **M7b save/load flyers `f191da6`**.
-- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`, clean tree.
+  M7b save/load flyers `f191da6`.
+- **M7c private templates + custom-field persistence is CODE-COMPLETE + verified locally but NOT yet
+  committed** (working tree has the changes). Commit it next.
+- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`.
 - **Tier 1 (anonymous) flyer maker** works end-to-end: land → pick a template → add a photo
   (drag/zoom reframe, never auto-cropped) → fill fields → **add your own custom fields** → pick a
   size → download PNG/PDF. Light + dark, mobile + desktop, 6 templates, 4 sizes.
 - **Tier 2 (magic link)** works: sign in → session; **rescue profile** (name/phone/website + logo)
-  **auto-fills new flyers'** contact band on sign-in; **save flyers to the account + reopen them**
-  (My flyers gallery) — photo bytes + a thumbnail stored in R2, full state round-trips.
+  auto-fills new flyers' contact band on sign-in; **save flyers + reopen them** (My flyers gallery,
+  photo+thumbnail in R2); **save the look as a private template + reuse it** (Your templates in the
+  Templates tab); **custom-field definitions persist to the profile** and reload on sign-in.
 
 ## Next: finish M7, then M8 + release
 - **M7b — Save / load flyers** ✅ DONE (`f191da6`). As-built: Worker `POST/GET/GET:id/
@@ -27,11 +30,18 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
   account menu (load rebuilds the photo from R2 bytes via a data URL → no canvas taint; delete has
   inline confirm). `EditorContext.loadFlyer(snap, photoState)` swaps all state at once;
   `nativeDoc` now exposed. New: `src/lib/flyersApi.js`, `src/components/flyers/*`.
-- **M7c — Private templates + persist custom fields** *(next up)*: `POST/GET /api/me/templates` (layout, no
-  animal content); "Save as template" + private templates in the gallery. Persist M5 custom-field
-  **definitions** to the profile (`PATCH /api/me` already accepts `custom_fields`) and load them on
-  sign-in (extend `applyProfile`/`ProfileAutofill`).
-- **M7 follow-up — logo ON the flyer**: M7a stores/serves/shows the logo in the profile but it does
+- **M7c — Private templates + persist custom fields** ✅ DONE (commit pending). Worker `POST/GET/
+  GET:id/GET:id/thumb/DELETE /api/me/templates` (requireAuth, scoped; cap 50). `template_data` JSON =
+  `{version,nativeDoc,outputSize,fonts,customFields(defs),templateId}` — **layout only, no animal
+  content, no photo**; thumbnail (current canvas) → R2 `templates/<u>/<id>/thumb`. Frontend: TopBar
+  **Save** is now a menu ("Save flyer" / "Save as template" → `SaveTemplateModal`); **Your templates**
+  section (`UserTemplates`) atop the Templates tab applies (`EditorContext.applyUserTemplate` — swaps
+  look + custom lanes, keeps animal content) / deletes. **Custom-field defs persist to the profile**:
+  a `customFieldsRev` counter (bumped ONLY by user edits — add/remove/rename/move, NOT by programmatic
+  loads) drives a debounced `CustomFieldsSync` bridge that `PATCH`es `{ custom_fields }`; defs load
+  once per login (only if local is empty) so opening a flyer/template never clobbers saved defaults.
+  New: `src/lib/userTemplatesApi.js`, `src/components/templates/{SaveTemplateModal,UserTemplates}.jsx`.
+- **M7 follow-up — logo ON the flyer** *(still open)*: M7a stores/serves/shows the logo in the profile but it does
   NOT render on the flyer yet. Cleanest single spot = **`ContactBlock`** (covers all 6 templates at
   once): load `/api/me/logo` into an HTMLImageElement, add a `logo` to editor state (like `photo`),
   render a small Konva `Image` at the left of the contact band, shift the name right. Verify export
@@ -48,7 +58,9 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
 - Me (M6/M7a): `GET /api/me`, `PATCH /api/me`, `POST /api/me/logo`, `GET /api/me/logo`.
 - Flyers (M7b): `POST /api/me/flyers`, `GET /api/me/flyers`, `GET /api/me/flyers/:id`,
   `GET /api/me/flyers/:id/thumb`, `GET /api/me/flyers/:id/photo`, `DELETE /api/me/flyers/:id`.
-- TODO: `/api/me/templates*` (M7c), `POST /api/templates` + `/api/admin/*` (M8).
+- Private templates (M7c): `POST /api/me/templates`, `GET /api/me/templates`, `GET /api/me/templates/:id`,
+  `GET /api/me/templates/:id/thumb`, `DELETE /api/me/templates/:id`.
+- TODO: `POST /api/templates` (submit) + `/api/admin/*` (M8).
 
 ## Architecture (as-built — do NOT regress)
 - A flyer is a **document** `{ outputSize, width, height, background, elements[] }`, elements in

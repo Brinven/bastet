@@ -166,3 +166,53 @@ export async function deleteSavedFlyer(db, userId, id) {
     .bind(id, userId)
     .run()
 }
+
+// ── Tier 2 private templates (M7c) ─────────────────────────────────────────────────────────────
+// A user's reusable LAYOUT (no animal content). Same per-user scoping + R2 thumbnail pattern as
+// saved flyers. `submitted` stays 0 here; the M8 community-submission flow flips it.
+
+export async function countUserTemplates(db, userId) {
+  const row = await db
+    .prepare(`SELECT COUNT(*) AS n FROM user_templates WHERE user_id = ?`)
+    .bind(userId)
+    .first()
+  return row?.n ?? 0
+}
+
+export async function createUserTemplate(db, userId, id, { name, template_data, thumbnail_key }) {
+  await db
+    .prepare(
+      `INSERT INTO user_templates (id, user_id, name, template_data, thumbnail_key)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .bind(id, userId, name, template_data, thumbnail_key ?? null)
+    .run()
+  return await getUserTemplate(db, userId, id)
+}
+
+export async function listUserTemplates(db, userId) {
+  const { results } = await db
+    .prepare(
+      `SELECT id, name, thumbnail_key, created_at, updated_at
+         FROM user_templates
+        WHERE user_id = ?
+        ORDER BY updated_at DESC`
+    )
+    .bind(userId)
+    .all()
+  return results ?? []
+}
+
+export async function getUserTemplate(db, userId, id) {
+  return await db
+    .prepare(`SELECT * FROM user_templates WHERE id = ? AND user_id = ?`)
+    .bind(id, userId)
+    .first()
+}
+
+export async function deleteUserTemplate(db, userId, id) {
+  await db
+    .prepare(`DELETE FROM user_templates WHERE id = ? AND user_id = ?`)
+    .bind(id, userId)
+    .run()
+}

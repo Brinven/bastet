@@ -2,6 +2,7 @@ import { useEditor } from '../../state/EditorContext.jsx'
 import { TEMPLATES } from '../../templates/index.js'
 import TemplateCard from './TemplateCard.jsx'
 import CommunityTemplates from './CommunityTemplates.jsx'
+import UserTemplates from './UserTemplates.jsx'
 
 // The template chooser. Picking a template keeps the user's content and reflows it into the
 // new layout, then returns to the Edit tab so they see it live on the canvas.
@@ -15,6 +16,8 @@ export default function TemplateGallery({ onApplied }) {
 
   return (
     <div className="grid gap-5">
+      <UserTemplates onApplied={onApplied} />
+
       <div className="grid gap-2.5">
         <p className="text-[13px] text-ink-soft">
           Pick a starting point — your photo and details carry over.
