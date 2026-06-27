@@ -47,6 +47,10 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
   const [fosterVsAdopt, setFosterVsAdopt] = useState(seed?.fosterVsAdopt ?? 'adopt')
   const [feeMode, setFeeMode] = useState(seed?.feeMode ?? 'fee')
   const [photo, setPhoto] = useState(seed?.photo ?? null)
+  // Rescue logo (M7 follow-up): `{ src, image }` loaded from the Tier 2 profile on sign-in and
+  // rendered in the contact band. Session-level (tied to the signed-in rescue), NOT part of a
+  // flyer/template snapshot — it's the same logo across all of a rescue's flyers.
+  const [logo, setLogo] = useState(null)
   const [fonts, setFonts] = useState(seed?.fonts ?? { global: DEFAULT_FLYER_FONT, perElement: {} })
   // Tier-1 custom fields (M5): ordered definitions; their VALUES live in `fields`/`badges`
   // (both maps are keyed by arbitrary id, so custom_<uuid> ids slot in alongside built-ins).
@@ -242,6 +246,7 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
       fosterVsAdopt, setFosterVsAdopt,
       feeMode, setFeeMode,
       photo, loadPhoto, setPhotoTransform, clearPhoto,
+      logo, setLogo,
       fonts, setGlobalFont, setElementFont, fontFor,
       selectedId, select,
     }),
@@ -251,7 +256,7 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
       fields, setField, applyProfile, badges, toggleBadge,
       customFields, customFieldsRev, addCustomField, removeCustomField, renameCustomField,
       moveCustomField, setCustomFieldsFromProfile,
-      fosterVsAdopt, feeMode, photo, loadPhoto, setPhotoTransform, clearPhoto,
+      fosterVsAdopt, feeMode, photo, loadPhoto, setPhotoTransform, clearPhoto, logo, setLogo,
       fonts, setGlobalFont, setElementFont, fontFor, selectedId, select,
     ]
   )

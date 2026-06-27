@@ -1,12 +1,12 @@
-import { Group, Rect, Text } from 'react-konva'
+import { Group, Rect, Text, Image as KonvaImage } from 'react-konva'
 import { useEditor } from '../../state/EditorContext.jsx'
 import { FIELDS } from '../../lib/fieldBindings.js'
 
-// Composite footer: rescue name (left) + phone · website (right). Usually on a warm band,
-// but `band` may be omitted (e.g. overlaying a photo scrim). Empty fields show faint sample
-// copy (via opacity, so it reads correctly on any band color) so the flyer looks finished.
+// Composite footer: optional rescue logo (left) + rescue name + phone · website (right). Usually on
+// a warm band, but `band` may be omitted (e.g. overlaying a photo scrim). Empty fields show faint
+// sample copy (via opacity, so it reads correctly on any band color) so the flyer looks finished.
 export default function ContactBlock({ element }) {
-  const { fields, fonts } = useEditor()
+  const { fields, fonts, logo } = useEditor()
   const family = fonts.global
   const { x, y, width, height, band, fill = '#2b211a' } = element
   const k = element._k ?? 1
@@ -23,12 +23,36 @@ export default function ContactBlock({ element }) {
   const contactEmpty = contactParts.length === 0
   const contactText = contactEmpty ? '(555) 123-4567  ·  happytails.org' : contactParts.join('  ·  ')
 
+  // Logo badge — most bands are dark, so the logo sits on a clean white rounded chip for reliable
+  // contrast across templates. Aspect-preserved inside the chip; the name shifts right to make room.
+  const hasLogo = !!logo?.image
+  const chip = hasLogo ? logoChip(logo.image, height, padX, k) : null
+  const nameX = chip ? chip.x + chip.size + 18 * k : padX
+
   return (
     <Group x={x} y={y} listening={false}>
       {band && <Rect width={width} height={height} fill={band} />}
+
+      {chip && (
+        <>
+          <Rect
+            x={chip.x}
+            y={chip.y}
+            width={chip.size}
+            height={chip.size}
+            cornerRadius={chip.size * 0.18}
+            fill="#ffffff"
+            shadowColor="rgba(0,0,0,0.25)"
+            shadowBlur={6 * k}
+            shadowOffsetY={1 * k}
+          />
+          <KonvaImage image={logo.image} x={chip.imgX} y={chip.imgY} width={chip.imgW} height={chip.imgH} />
+        </>
+      )}
+
       <Text
         text={nameText}
-        x={padX}
+        x={nameX}
         y={0}
         height={height}
         verticalAlign="middle"
@@ -54,4 +78,28 @@ export default function ContactBlock({ element }) {
       />
     </Group>
   )
+}
+
+// Geometry for the logo chip + the aspect-fit image inside it, given the band height.
+function logoChip(image, bandH, padX, k) {
+  const size = Math.min(bandH * 0.66, bandH - 16 * k)
+  const cy = (bandH - size) / 2
+  const inset = size * 0.14
+  const innerBox = size - inset * 2
+  const iw = image.naturalWidth || 1
+  const ih = image.naturalHeight || 1
+  const ar = iw / ih
+  let imgW = innerBox
+  let imgH = innerBox
+  if (ar >= 1) imgH = innerBox / ar
+  else imgW = innerBox * ar
+  return {
+    x: padX,
+    y: cy,
+    size,
+    imgX: padX + inset + (innerBox - imgW) / 2,
+    imgY: cy + inset + (innerBox - imgH) / 2,
+    imgW,
+    imgH,
+  }
 }

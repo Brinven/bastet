@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useEditor } from '../../state/EditorContext.jsx'
 import { useAuth } from '../../state/AuthContext.jsx'
 import { useFonts } from '../../hooks/useFonts.js'
-import { loadImageFile, isLowRes } from '../../lib/image.js'
+import { loadImageFile, isLowRes, loadImageSrc, blobToDataURL } from '../../lib/image.js'
 import { exportToPNG, exportToPDF, exportThumbnailBlob } from '../../lib/export.js'
 import { saveFlyer } from '../../lib/flyersApi.js'
 import { saveUserTemplate } from '../../lib/userTemplatesApi.js'
@@ -62,6 +62,36 @@ function CustomFieldsSync() {
     return () => clearTimeout(t)
   }, [user, customFields, customFieldsRev, updateProfile])
 
+  return null
+}
+
+// Load the signed-in rescue's logo into editor state so it renders on the flyer (M7 follow-up).
+// Fetched as a data URL (same-origin → no canvas taint on export). Re-runs when the logo is
+// replaced (logoVersion) and clears on sign-out / when no logo is set.
+function LogoSync() {
+  const { user, logoVersion } = useAuth()
+  const { setLogo } = useEditor()
+  useEffect(() => {
+    let alive = true
+    if (!user?.has_logo) {
+      setLogo(null)
+      return
+    }
+    ;(async () => {
+      try {
+        const res = await fetch('/api/me/logo', { credentials: 'include' })
+        if (!res.ok) throw new Error('no logo')
+        const src = await blobToDataURL(await res.blob())
+        const loaded = await loadImageSrc(src)
+        if (alive) setLogo(loaded)
+      } catch {
+        if (alive) setLogo(null)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [user, logoVersion, setLogo])
   return null
 }
 
@@ -176,6 +206,7 @@ export default function Editor() {
     <div className="flex min-h-screen flex-col bg-bg text-ink lg:h-screen lg:overflow-hidden">
       <ProfileAutofill />
       <CustomFieldsSync />
+      <LogoSync />
       <TopBar
         onDownload={handleDownload}
         downloading={downloading}

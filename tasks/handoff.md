@@ -39,11 +39,13 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
   loads) drives a debounced `CustomFieldsSync` bridge that `PATCH`es `{ custom_fields }`; defs load
   once per login (only if local is empty) so opening a flyer/template never clobbers saved defaults.
   New: `src/lib/userTemplatesApi.js`, `src/components/templates/{SaveTemplateModal,UserTemplates}.jsx`.
-- **M7 follow-up — logo ON the flyer** *(still open)*: M7a stores/serves/shows the logo in the profile but it does
-  NOT render on the flyer yet. Cleanest single spot = **`ContactBlock`** (covers all 6 templates at
-  once): load `/api/me/logo` into an HTMLImageElement, add a `logo` to editor state (like `photo`),
-  render a small Konva `Image` at the left of the contact band, shift the name right. Verify export
-  (same-origin image → no canvas taint). Tracked in todo.md M7a.
+- **M7 follow-up — logo ON the flyer** ✅ DONE (commit pending). `logo` in `EditorContext`; a
+  `LogoSync` bridge (Editor) loads `/api/me/logo` as a **data URL** (no canvas taint) on sign-in +
+  on replace (`logoVersion`), clears on sign-out. `ContactBlock` renders it on a **white rounded
+  chip** (reliable contrast on the mostly-dark bands), aspect-preserved, and shifts the rescue name
+  right. Session-level (same logo across all the rescue's flyers) → NOT stored per flyer/template.
+  Verified (Playwright): upload via profile modal → shows on the band → Download PNG still exports
+  (no taint). **This closes M7 (a/b/c + follow-up).**
 - **M8 — Community submissions + admin**: submit form (Tier 2) `POST /api/templates`; admin approval
   (`/api/admin/templates/*`, **bearer token** `ADMIN_BEARER_TOKEN`, not session) + minimal admin UI;
   appears in the community browser once approved. The browser + `GET /api/templates` (approved-only)

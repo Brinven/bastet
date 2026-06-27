@@ -136,9 +136,13 @@ to `/api`), NOT browser-direct. This avoids R2 CORS config + the prod-origin dep
 - [x] Verified: curl (PATCH persists; logo round-trips R2 byte-for-byte 77→77; GET /api/me shows
   saved profile) + Playwright (sign in → contact band auto-fills "Paws & Claws Rescue" + phone/web;
   profile modal shows saved fields + logo).
-- [ ] **Follow-up (not yet):** render the logo ON the flyer (cleanest single spot = `ContactBlock`,
-  covers all templates) + auto-load it into the editor. Deferred — M7a stores/serves/shows the logo
-  in the profile; it doesn't appear on the flyer yet.
+- [x] **Follow-up — logo ON the flyer (done ✅):** `logo` in `EditorContext`; a `LogoSync` bridge
+  (Editor) loads `/api/me/logo` as a data URL (no canvas taint) on sign-in + on replace (logoVersion),
+  clears on sign-out. `ContactBlock` renders it on a white rounded chip (reliable contrast on the
+  mostly-dark bands), aspect-preserved, and shifts the rescue name right. Session-level (same logo on
+  all the rescue's flyers) → NOT stored per flyer/template. Verified (Playwright): upload logo via the
+  profile modal → appears on the contact band → **Download PNG still exports (no SecurityError → not
+  tainted)**. Build clean.
 
 ### M7b — Save / load flyers  *(chunk 2 — done ✅)*
 
