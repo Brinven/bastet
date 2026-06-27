@@ -39,7 +39,7 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
   loads) drives a debounced `CustomFieldsSync` bridge that `PATCH`es `{ custom_fields }`; defs load
   once per login (only if local is empty) so opening a flyer/template never clobbers saved defaults.
   New: `src/lib/userTemplatesApi.js`, `src/components/templates/{SaveTemplateModal,UserTemplates}.jsx`.
-- **M7 follow-up — logo ON the flyer** ✅ DONE (commit pending). `logo` in `EditorContext`; a
+- **M7 follow-up — logo ON the flyer** ✅ DONE (`b1872cf`). `logo` in `EditorContext`; a
   `LogoSync` bridge (Editor) loads `/api/me/logo` as a **data URL** (no canvas taint) on sign-in +
   on replace (`logoVersion`), clears on sign-out. `ContactBlock` renders it on a **white rounded
   chip** (reliable contrast on the mostly-dark bands), aspect-preserved, and shifts the rescue name
