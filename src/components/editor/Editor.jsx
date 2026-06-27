@@ -3,11 +3,13 @@ import { useEditor } from '../../state/EditorContext.jsx'
 import { useAuth } from '../../state/AuthContext.jsx'
 import { useFonts } from '../../hooks/useFonts.js'
 import { loadImageFile, isLowRes } from '../../lib/image.js'
-import { exportToPNG, exportToPDF } from '../../lib/export.js'
+import { exportToPNG, exportToPDF, exportThumbnailBlob } from '../../lib/export.js'
+import { saveFlyer } from '../../lib/flyersApi.js'
 import TopBar from '../TopBar.jsx'
 import EditorCanvas from './EditorCanvas.jsx'
 import ControlPanel from '../fields/ControlPanel.jsx'
 import TemplateGallery from '../templates/TemplateGallery.jsx'
+import SaveFlyerModal from '../flyers/SaveFlyerModal.jsx'
 
 // Fill contact fields from the signed-in rescue profile once per login (empties only).
 function ProfileAutofill() {
@@ -27,11 +29,16 @@ function ProfileAutofill() {
 
 export default function Editor() {
   useFonts() // load the curated flyer fonts + track readiness for export
-  const { doc, fields, loadPhoto, clearPhoto } = useEditor()
+  const editor = useEditor()
+  const {
+    doc, nativeDoc, templateId, fields, badges, customFields, fosterVsAdopt, feeMode, fonts, photo,
+    loadPhoto, clearPhoto,
+  } = editor
   const stageRef = useRef(null)
   const fileInputRef = useRef(null)
   const [lowRes, setLowRes] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [saveOpen, setSaveOpen] = useState(false)
   const [tab, setTab] = useState('edit') // 'edit' | 'templates'
 
   const openDialog = () => fileInputRef.current?.click()
@@ -55,6 +62,37 @@ export default function Editor() {
   const remove = () => {
     clearPhoto()
     setLowRes(false)
+  }
+
+  // Capture the full editor state + a thumbnail + the original photo bytes, then save to the
+  // account (M7b). Photo bytes go to R2 (via the Worker) so a later load round-trips exactly.
+  const handleSaveFlyer = async (name) => {
+    if (!stageRef.current) return { ok: false, error: 'Canvas not ready.' }
+    const snapshot = {
+      version: 1,
+      templateId,
+      nativeDoc,
+      outputSize: doc.outputSize,
+      fields,
+      badges,
+      customFields,
+      fosterVsAdopt,
+      feeMode,
+      fonts,
+      photo: photo
+        ? {
+            naturalWidth: photo.naturalWidth,
+            naturalHeight: photo.naturalHeight,
+            scale: photo.scale ?? 1,
+            offsetX: photo.offsetX ?? 0,
+            offsetY: photo.offsetY ?? 0,
+            hasBytes: true,
+          }
+        : null,
+    }
+    const thumbBlob = await exportThumbnailBlob(stageRef, doc.outputSize)
+    const photoBlob = photo?.src ? await (await fetch(photo.src)).blob() : null
+    return await saveFlyer({ name, outputSize: doc.outputSize, snapshot, thumbBlob, photoBlob })
   }
 
   const handleDownload = async (format = 'png') => {
@@ -82,7 +120,14 @@ export default function Editor() {
   return (
     <div className="flex min-h-screen flex-col bg-bg text-ink lg:h-screen lg:overflow-hidden">
       <ProfileAutofill />
-      <TopBar onDownload={handleDownload} downloading={downloading} />
+      <TopBar onDownload={handleDownload} downloading={downloading} onSaveFlyer={() => setSaveOpen(true)} />
+
+      <SaveFlyerModal
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        defaultName={fields.animal_name ? `${fields.animal_name} — flyer` : 'Untitled Flyer'}
+        onSave={handleSaveFlyer}
+      />
 
       <input
         ref={fileInputRef}

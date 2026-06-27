@@ -163,9 +163,28 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
     setFonts((s) => ({ ...s, perElement: {} }))
   }, [])
 
+  // Restore a saved flyer (M7b): replace the entire editor state in one shot. `snap` is the
+  // serialized flyer_data; `photoState` is the rebuilt photo object ({ src, image, naturalWidth,
+  // naturalHeight, scale, offsetX, offsetY }) or null. Falls back to safe defaults for any
+  // field a snapshot might be missing (forward/back-compat).
+  const loadFlyer = useCallback((snap, photoState = null) => {
+    if (!snap) return
+    if (snap.nativeDoc) setNativeDoc(snap.nativeDoc)
+    setOutputSizeState(snap.outputSize || snap.nativeDoc?.outputSize || 'instagram_post')
+    setTemplateId(snap.templateId || 'calm-cream')
+    setFields(snap.fields ?? emptyRecord(TEXT_FIELDS, ''))
+    setBadges(snap.badges ?? emptyRecord(BADGE_FIELDS, false))
+    setCustomFields(Array.isArray(snap.customFields) ? snap.customFields : [])
+    setFosterVsAdopt(snap.fosterVsAdopt ?? 'adopt')
+    setFeeMode(snap.feeMode ?? 'fee')
+    setFonts(snap.fonts ?? { global: DEFAULT_FLYER_FONT, perElement: {} })
+    setPhoto(photoState)
+    setSelectedId(null)
+  }, [])
+
   const value = useMemo(
     () => ({
-      doc, loadTemplate, templateId, interactive,
+      doc, nativeDoc, loadTemplate, loadFlyer, templateId, interactive,
       outputSize, setOutputSize,
       fields, setField, applyProfile,
       badges, toggleBadge,
@@ -177,7 +196,7 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
       selectedId, select,
     }),
     [
-      doc, loadTemplate, templateId, interactive, outputSize, setOutputSize,
+      doc, nativeDoc, loadTemplate, loadFlyer, templateId, interactive, outputSize, setOutputSize,
       fields, setField, applyProfile, badges, toggleBadge,
       customFields, addCustomField, removeCustomField, renameCustomField, moveCustomField,
       fosterVsAdopt, feeMode, photo, loadPhoto, setPhotoTransform, clearPhoto,

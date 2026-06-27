@@ -140,14 +140,47 @@ to `/api`), NOT browser-direct. This avoids R2 CORS config + the prod-origin dep
   covers all templates) + auto-load it into the editor. Deferred — M7a stores/serves/shows the logo
   in the profile; it doesn't appear on the flyer yet.
 
-### M7b — Save / load flyers  *(chunk 2)*
-- [ ] Worker `POST /api/me/flyers` (flyer_data JSON + thumbnail PNG → R2, ≤2 MB; name, output_size),
-  `GET /api/me/flyers` (list w/ thumbnail URL), `GET /api/me/flyers/:id`, `DELETE /api/me/flyers/:id`.
-  All scoped to the session user (no cross-user access).
-- [ ] Frontend: "Save flyer" (captures full editor state — fields, badges, customFields, photo?,
-  fonts, templateId, nativeDoc) + "My flyers" gallery (load / delete, thumbnails).
-- [ ] Decide photo handling on save (photo is a local File/dataURL — store in R2 or omit + re-add?).
-- [ ] Verify: save → appears in My flyers w/ thumbnail → load restores state → delete removes.
+### M7b — Save / load flyers  *(chunk 2 — done ✅)*
+
+**Decision (user, 2026-06-26):** store the photo bytes in R2 so a save round-trips EXACTLY
+(volunteer doesn't re-add the photo on load). Watch storage if this gets popular → per-user
+cap of **50 saved flyers** as the guard (bounded worst case; tunable).
+
+**Storage shape:**
+- D1 `saved_flyers`: `flyer_data` JSON (full editor state, NO image bytes), `thumbnail_key`,
+  `output_size`, `name`. `flyer_data` = `{ version, templateId, nativeDoc, outputSize, fields,
+  badges, customFields, fosterVsAdopt, feeMode, fonts, photo:{transform + hasBytes}|null }`.
+- R2 `bastet-user-assets` (worker-proxied, no CORS): `flyers/<u>/<id>/thumb` (≤2 MB) +
+  `flyers/<u>/<id>/photo` (original bytes, ≤10 MB, only if a photo exists). Keys derived from
+  user+flyer ids; delete removes both.
+
+**Worker (me.js, behind requireAuth, all scoped to session user):**
+- [x] db.js: `createSavedFlyer`, `listSavedFlyers`, `getSavedFlyer`, `deleteSavedFlyer`, `countSavedFlyers`.
+- [x] `POST /api/me/flyers` — multipart (`name`, `output_size`, `flyer_data` JSON, `thumb` file,
+  optional `photo` file). Enforce caps + 50-flyer per-user limit (409). Generate id → put R2 → insert.
+- [x] `GET /api/me/flyers` — list summaries (id, name, output_size, has_thumbnail, timestamps).
+- [x] `GET /api/me/flyers/:id` — full row + parsed flyer_data (owner only).
+- [x] `GET /api/me/flyers/:id/thumb` + `GET /api/me/flyers/:id/photo` — serve from R2 (owner only).
+- [x] `DELETE /api/me/flyers/:id` — fetch row (scoped) → delete R2 thumb+photo → delete D1 row.
+
+**Frontend:**
+- [x] export.js: `exportThumbnailBlob(stageRef, outputSize, maxDim)` (small PNG; same font-load path).
+- [x] image.js: `loadImageSrc(src)` + `blobToDataURL(blob)` (rebuild photo from R2 bytes, dataURL → no taint).
+- [x] lib/flyersApi.js: `saveFlyer`, `listFlyers`, `getFlyer`, `deleteFlyer`, `fetchFlyerPhotoBlob`.
+- [x] EditorContext: expose `nativeDoc` + add `loadFlyer(snap, photoState)` (sets all state at once).
+- [x] `SaveFlyerModal` (name input → capture snapshot+thumb+photo → save). TopBar "Save" button (signed-in only).
+- [x] `MyFlyersModal` (gallery: thumbnails, load / delete w/ inline confirm). Opened from account menu ("📁 My flyers").
+- [x] Wire: Editor owns Save (has stageRef); AccountButton owns My flyers (self-contained via useEditor).
+
+**Verified:** curl flow save(201)→list→get(flyer_data round-trips)→thumb/photo(200 image/png from R2)→
+no-cookie 401→delete→list empty→thumb 404. Playwright: sign in → Save visible → add photo+name →
+save → My flyers thumbnail loads → mutate name → Open restores name (ZephyrTest) + photo + size. Build clean.
+
+**Bug autopsy:** the curl test first 500'd with "Content-Disposition … missing a name" — a PowerShell
+`-Form` multipart artifact (its file parts omit a usable name), NOT a worker bug. `curl.exe -F`
+(standards-compliant multipart) and real browser FormData both work. Lesson: when a multipart route
+500s only from PowerShell `Invoke-WebRequest -Form`, suspect the test harness, not the handler —
+re-test with `curl.exe` before "fixing" working code.
 
 ### M7c — Private templates + persist custom fields  *(chunk 3)*
 - [ ] Worker `POST /api/me/templates` (template_data + thumbnail), `GET /api/me/templates`.

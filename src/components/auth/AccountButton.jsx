@@ -1,18 +1,25 @@
 import { useState } from 'react'
 import Menu from '../ui/Menu.jsx'
 import ProfileModal from '../profile/ProfileModal.jsx'
+import MyFlyersModal from '../flyers/MyFlyersModal.jsx'
 import { useAuth } from '../../state/AuthContext.jsx'
 
 // TopBar account control. Tier 1 is the default — this is an unobtrusive optional sign-in.
 export default function AccountButton() {
   const { user, loading } = useAuth()
   const [profileOpen, setProfileOpen] = useState(false)
+  const [flyersOpen, setFlyersOpen] = useState(false)
   if (loading) return null
   if (!user) return <SignInMenu />
   return (
     <>
-      <AccountMenu user={user} onOpenProfile={() => setProfileOpen(true)} />
+      <AccountMenu
+        user={user}
+        onOpenProfile={() => setProfileOpen(true)}
+        onOpenFlyers={() => setFlyersOpen(true)}
+      />
       <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <MyFlyersModal open={flyersOpen} onClose={() => setFlyersOpen(false)} />
     </>
   )
 }
@@ -98,7 +105,7 @@ function SignInMenu() {
   )
 }
 
-function AccountMenu({ user, onOpenProfile }) {
+function AccountMenu({ user, onOpenProfile, onOpenFlyers }) {
   const { logout } = useAuth()
   const display = user.rescue_name?.trim() || user.email
   const initial = (display || '?').trim().charAt(0).toUpperCase()
@@ -131,6 +138,16 @@ function AccountMenu({ user, onOpenProfile }) {
             <span className="truncate text-[12px] text-ink-faint">{user.email}</span>
           </div>
           <div className="my-1 h-px bg-border" />
+          <button
+            type="button"
+            onClick={() => {
+              close()
+              onOpenFlyers()
+            }}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[14px] font-semibold text-ink transition hover:bg-sunken"
+          >
+            <span aria-hidden>📁</span> My flyers
+          </button>
           <button
             type="button"
             onClick={() => {

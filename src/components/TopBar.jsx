@@ -3,6 +3,7 @@ import Menu from './ui/Menu.jsx'
 import AccountButton from './auth/AccountButton.jsx'
 import { OUTPUT_SIZES } from '../lib/outputSizes.js'
 import { useEditor } from '../state/EditorContext.jsx'
+import { useAuth } from '../state/AuthContext.jsx'
 
 const SIZE_HINTS = {
   instagram_post: 'Square · 1080×1080',
@@ -12,8 +13,10 @@ const SIZE_HINTS = {
 }
 
 // Sticky top bar: brand (left) + output-size picker and the primary Download action (right).
-export default function TopBar({ onDownload, downloading }) {
+// Signed-in (Tier 2) users also get a Save action that keeps the flyer to their account.
+export default function TopBar({ onDownload, downloading, onSaveFlyer }) {
   const { doc, outputSize, setOutputSize } = useEditor()
+  const { user } = useAuth()
   const sizeLabel = OUTPUT_SIZES[doc.outputSize]?.label ?? 'Flyer'
 
   return (
@@ -73,6 +76,19 @@ export default function TopBar({ onDownload, downloading }) {
           )}
         </Menu>
 
+        {/* Save flyer (Tier 2 only) */}
+        {user && (
+          <button
+            type="button"
+            onClick={onSaveFlyer}
+            aria-label="Save flyer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-2 text-[13px] font-semibold text-ink-soft transition hover:bg-sunken sm:px-3.5"
+          >
+            <SaveIcon />
+            <span className="hidden sm:inline">Save</span>
+          </button>
+        )}
+
         {/* Download (PNG / PDF) */}
         <Menu
           align="right"
@@ -126,6 +142,15 @@ function Caret({ open }) {
 
 function Dot() {
   return <span className="h-2.5 w-2.5 rounded-full bg-primary" aria-hidden />
+}
+
+function SaveIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M17 21v-8H7v8M7 3v5h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
 }
 
 function DownloadIcon() {

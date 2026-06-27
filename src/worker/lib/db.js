@@ -115,3 +115,54 @@ export async function setUserLogoKey(db, userId, key) {
     .bind(key, userId)
     .run()
 }
+
+// ── Tier 2 saved flyers (M7b) ──────────────────────────────────────────────────────────────────
+// Every read/write is scoped to the owning user_id — a session user can never touch another
+// user's flyers. R2 keys (thumb/photo) are derived from user+flyer ids by the route.
+
+export async function countSavedFlyers(db, userId) {
+  const row = await db
+    .prepare(`SELECT COUNT(*) AS n FROM saved_flyers WHERE user_id = ?`)
+    .bind(userId)
+    .first()
+  return row?.n ?? 0
+}
+
+export async function createSavedFlyer(db, userId, id, { name, flyer_data, thumbnail_key, output_size }) {
+  await db
+    .prepare(
+      `INSERT INTO saved_flyers (id, user_id, name, flyer_data, thumbnail_key, output_size)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .bind(id, userId, name, flyer_data, thumbnail_key ?? null, output_size)
+    .run()
+  return await getSavedFlyer(db, userId, id)
+}
+
+// List summaries for the gallery — never ships flyer_data (the bulky JSON) in the list payload.
+export async function listSavedFlyers(db, userId) {
+  const { results } = await db
+    .prepare(
+      `SELECT id, name, output_size, thumbnail_key, created_at, updated_at
+         FROM saved_flyers
+        WHERE user_id = ?
+        ORDER BY updated_at DESC`
+    )
+    .bind(userId)
+    .all()
+  return results ?? []
+}
+
+export async function getSavedFlyer(db, userId, id) {
+  return await db
+    .prepare(`SELECT * FROM saved_flyers WHERE id = ? AND user_id = ?`)
+    .bind(id, userId)
+    .first()
+}
+
+export async function deleteSavedFlyer(db, userId, id) {
+  await db
+    .prepare(`DELETE FROM saved_flyers WHERE id = ? AND user_id = ?`)
+    .bind(id, userId)
+    .run()
+}

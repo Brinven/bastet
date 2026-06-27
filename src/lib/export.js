@@ -35,6 +35,35 @@ export async function exportToPNG(stageRef, outputSize) {
   return dataURL
 }
 
+// Small thumbnail PNG for the "My flyers" gallery (M7b). Same font-load discipline as the full
+// export (so the thumbnail matches the preview), but rendered at a capped longest-edge so the
+// stored object stays tiny (well under the 2 MB cap — typically a few tens of KB). Returns a Blob.
+export async function exportThumbnailBlob(stageRef, outputSize, maxDim = 480) {
+  await document.fonts.ready
+  await new Promise((r) => setTimeout(r, 200)) // safety buffer (match the export path)
+
+  const { width, height } = OUTPUT_SIZES[outputSize]
+  const stage = stageRef.current
+
+  const previewWidth = stage.width()
+  const previewHeight = stage.height()
+
+  // Fit the output aspect into a maxDim box.
+  const fit = Math.min(maxDim / width, maxDim / height, 1)
+  const outW = Math.round(width * fit)
+  const outH = Math.round(height * fit)
+
+  stage.scale({ x: outW / previewWidth, y: outH / previewHeight })
+  stage.size({ width: outW, height: outH })
+
+  const dataURL = stage.toDataURL({ pixelRatio: 1, mimeType: 'image/png' })
+
+  stage.scale({ x: 1, y: 1 })
+  stage.size({ width: previewWidth, height: previewHeight })
+
+  return await (await fetch(dataURL)).blob()
+}
+
 // PDF export wraps the PNG (no headless browser — CLAUDE.md stack rule). jsPDF is imported
 // lazily so the editor bundle stays lean until the user actually exports a PDF. Stream + image
 // compression keep print PDFs to a sane size.

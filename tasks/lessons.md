@@ -56,3 +56,33 @@ and `MAGIC_LINK_BASE_URL`-gated logic silently used the wrong values in local de
 trustworthy request/server signals, never from local-only tooling (`.dev.vars`) that may not load
 and never from spoofable client headers in production. Verify env-dependent branches actually see
 the value you think (`/api/health` echoing `env` caught this immediately).
+
+## Testing: PowerShell `Invoke-WebRequest -Form` produces multipart the Workers runtime rejects (M7b, 2026-06-26)
+**Symptom:** `POST /api/me/flyers` (multipart: text fields + thumb/photo files) **500'd only from
+PowerShell** with `TypeError: Content-Disposition header in FormData part is missing a name` (thrown
+inside Hono's `c.req.parseBody()` → the Workers `parseFormData`). The handler was correct; a real
+browser's `FormData` and `curl.exe -F` both worked first try.
+
+**Root cause:** PS7 `Invoke-WebRequest -Form @{ file = Get-Item path }` emits file parts whose
+`Content-Disposition` lacks a usable `name=` the way the WHATWG/Workers parser expects — a
+test-harness artifact, not a server bug.
+
+**Rule:** when a multipart endpoint 500s **only** under PowerShell `-Form`, suspect the harness
+before the handler. Re-test with `curl.exe -F "field=@file;type=..."` (and `-F "json=<file"` to
+pass a JSON field value from a file, avoiding shell-quoting hell) and/or a real browser via
+Playwright before changing working code. Also: PS `-o $null` expands to an EMPTY string → curl
+errors with "option -o requires parameter"; use a real sink path (or `NUL`).
+
+## Design: store-the-bytes round-trip for saved flyers (M7b, 2026-06-26)
+**Decision (user):** save the original animal photo bytes to R2 with the flyer so a load restores
+EXACTLY (the volunteer never re-adds the photo). Cost guard = a **per-user cap (50 flyers)** since
+this could get popular; worst case ~50×10 MB/user, tunable in one constant (`MAX_FLYERS` in
+`worker/routes/me.js`).
+- `flyer_data` JSON (D1) holds everything **except** image bytes — including the photo *transform*
+  (`scale/offsetX/offsetY/naturalWidth/naturalHeight` + `hasBytes`). Bytes (photo + thumbnail) live
+  in R2, worker-proxied (no CORS), keys derived from `user+flyer` ids.
+- **Restore without canvas taint:** fetch the photo bytes → `FileReader` → **data URL** → `new Image`.
+  A data URL is same-origin, so `stage.toDataURL()` export stays clean. (Serving the R2 object URL
+  directly would be same-origin too here, but data URL is the belt-and-suspenders choice.)
+- The HTMLImageElement is non-serializable — store only `photo.src`'s *transform* in JSON and rebuild
+  the element on load; never try to JSON a live `Image`/`File`.

@@ -1,14 +1,25 @@
 import { Hono } from 'hono'
 import { requireAuth } from '../lib/session.js'
-import { updateUserProfile, setUserLogoKey, getUserById } from '../lib/db.js'
-import { putObject, getObject } from '../lib/r2.js'
+import {
+  updateUserProfile, setUserLogoKey, getUserById,
+  countSavedFlyers, createSavedFlyer, listSavedFlyers, getSavedFlyer, deleteSavedFlyer,
+} from '../lib/db.js'
+import { putObject, getObject, deleteObject } from '../lib/r2.js'
 
-// Tier 2 "current user" routes. M6 = read profile; M7 adds profile edit + rescue logo (R2).
-// Saved flyers + private templates arrive in M7b/M7c. Everything here is behind requireAuth.
+// Tier 2 "current user" routes. M6 = read profile; M7a adds profile edit + rescue logo (R2);
+// M7b adds saved flyers (flyer_data JSON in D1 + thumbnail/photo bytes in R2). Private templates
+// arrive in M7c. Everything here is behind requireAuth and scoped to the session user.
 const me = new Hono()
 me.use('*', requireAuth)
 
 const MAX_LOGO = 10 * 1024 * 1024 // 10 MB (PRD)
+const MAX_THUMB = 2 * 1024 * 1024 // 2 MB (PRD)
+const MAX_PHOTO = 10 * 1024 * 1024 // 10 MB — original animal photo bytes stored with the flyer
+const MAX_FLYERS = 50 // per-user storage guard (worst case ~50 × ~10 MB; tune if it grows)
+
+// Deterministic R2 keys for a flyer's assets, scoped under the owning user.
+const thumbKey = (userId, flyerId) => `flyers/${userId}/${flyerId}/thumb`
+const photoKey = (userId, flyerId) => `flyers/${userId}/${flyerId}/photo`
 
 // Public-facing user shape — explicit allow-list, never the raw row.
 function publicUser(u) {
@@ -68,6 +79,130 @@ me.get('/logo', async (c) => {
   return new Response(obj.body, { headers })
 })
 
+// ── Saved flyers (M7b) ─────────────────────────────────────────────────────────────────────────
+
+// Gallery summary — never includes the bulky flyer_data; thumbnail_key stays internal.
+function flyerSummary(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    output_size: row.output_size,
+    has_thumbnail: !!row.thumbnail_key,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+// POST /api/me/flyers — save a flyer. multipart: name, output_size, flyer_data (JSON string),
+// thumb (file), photo (optional file). flyer_data carries the full editor state minus image bytes;
+// the original photo + a small thumbnail go to R2 so a load round-trips exactly.
+me.post('/flyers', async (c) => {
+  const u = c.get('user')
+
+  if ((await countSavedFlyers(c.env.DB, u.id)) >= MAX_FLYERS) {
+    return c.json(
+      { error: `You can save up to ${MAX_FLYERS} flyers. Delete one to make room.` },
+      409
+    )
+  }
+
+  const form = await c.req.parseBody()
+  const name = clampStr(form['name'], 120) || 'Untitled Flyer'
+  const output_size = clampStr(form['output_size'], 40) || 'instagram_post'
+  const flyerDataRaw = form['flyer_data']
+  if (typeof flyerDataRaw !== 'string' || !flyerDataRaw) {
+    return c.json({ error: 'Missing flyer data.' }, 400)
+  }
+  // Validate it parses (and re-serialize a normalized form so we never store garbage).
+  let parsed
+  try {
+    parsed = JSON.parse(flyerDataRaw)
+  } catch {
+    return c.json({ error: 'Invalid flyer data.' }, 400)
+  }
+
+  const thumb = form['thumb']
+  if (!thumb || typeof thumb === 'string') return c.json({ error: 'Missing thumbnail.' }, 400)
+  if (thumb.size > MAX_THUMB) return c.json({ error: 'Thumbnail too large.' }, 413)
+
+  const photo = form['photo']
+  const hasPhoto = photo && typeof photo !== 'string'
+  if (hasPhoto) {
+    if (!photo.type?.startsWith('image/')) return c.json({ error: 'Photo must be an image.' }, 400)
+    if (photo.size > MAX_PHOTO) return c.json({ error: 'Photo must be under 10 MB.' }, 413)
+  }
+
+  const id = crypto.randomUUID()
+  const tKey = thumbKey(u.id, id)
+  await putObject(c.env.USER_ASSETS_BUCKET, tKey, await thumb.arrayBuffer(), thumb.type || 'image/png')
+  if (hasPhoto) {
+    await putObject(c.env.USER_ASSETS_BUCKET, photoKey(u.id, id), await photo.arrayBuffer(), photo.type)
+  }
+
+  const row = await createSavedFlyer(c.env.DB, u.id, id, {
+    name,
+    flyer_data: JSON.stringify(parsed),
+    thumbnail_key: tKey,
+    output_size,
+  })
+  return c.json({ flyer: flyerSummary(row) }, 201)
+})
+
+// GET /api/me/flyers — list the user's saved flyers (summaries only).
+me.get('/flyers', async (c) => {
+  const u = c.get('user')
+  const rows = await listSavedFlyers(c.env.DB, u.id)
+  return c.json({ flyers: rows.map(flyerSummary) })
+})
+
+// GET /api/me/flyers/:id — full flyer incl. parsed flyer_data (owner only).
+me.get('/flyers/:id', async (c) => {
+  const u = c.get('user')
+  const row = await getSavedFlyer(c.env.DB, u.id, c.req.param('id'))
+  if (!row) return c.json({ error: 'Not found' }, 404)
+  return c.json({
+    flyer: { ...flyerSummary(row), flyer_data: safeJsonObject(row.flyer_data) },
+  })
+})
+
+// GET /api/me/flyers/:id/thumb — serve the thumbnail from R2 (owner only).
+me.get('/flyers/:id/thumb', async (c) => {
+  const u = c.get('user')
+  const row = await getSavedFlyer(c.env.DB, u.id, c.req.param('id'))
+  if (!row?.thumbnail_key) return c.json({ error: 'Not found' }, 404)
+  return serveObject(c, row.thumbnail_key)
+})
+
+// GET /api/me/flyers/:id/photo — serve the original photo bytes from R2 (owner only).
+me.get('/flyers/:id/photo', async (c) => {
+  const u = c.get('user')
+  const row = await getSavedFlyer(c.env.DB, u.id, c.req.param('id'))
+  if (!row) return c.json({ error: 'Not found' }, 404)
+  return serveObject(c, photoKey(u.id, row.id))
+})
+
+// DELETE /api/me/flyers/:id — remove the flyer + its R2 assets (owner only).
+me.delete('/flyers/:id', async (c) => {
+  const u = c.get('user')
+  const id = c.req.param('id')
+  const row = await getSavedFlyer(c.env.DB, u.id, id)
+  if (!row) return c.json({ error: 'Not found' }, 404)
+  await deleteObject(c.env.USER_ASSETS_BUCKET, thumbKey(u.id, id))
+  await deleteObject(c.env.USER_ASSETS_BUCKET, photoKey(u.id, id))
+  await deleteSavedFlyer(c.env.DB, u.id, id)
+  return c.json({ ok: true })
+})
+
+// Stream an R2 object back through the authed Worker (no bucket CORS; only the owner reaches here).
+async function serveObject(c, key) {
+  const obj = await getObject(c.env.USER_ASSETS_BUCKET, key)
+  if (!obj) return c.json({ error: 'Not found' }, 404)
+  const headers = new Headers()
+  obj.writeHttpMetadata(headers)
+  headers.set('Cache-Control', 'private, no-cache')
+  return new Response(obj.body, { headers })
+}
+
 function clampStr(v, max) {
   if (v == null) return null
   const s = String(v).trim()
@@ -80,6 +215,15 @@ function safeJsonArray(s) {
     return Array.isArray(v) ? v : []
   } catch {
     return []
+  }
+}
+
+function safeJsonObject(s) {
+  try {
+    const v = JSON.parse(s)
+    return v && typeof v === 'object' ? v : null
+  } catch {
+    return null
   }
 }
 

@@ -1,4 +1,4 @@
-# Bastet — Handoff (Push 2 in progress — M5 ✅ · M6 ✅ · M7a ✅)
+# Bastet — Handoff (Push 2 in progress — M5 ✅ · M6 ✅ · M7a ✅ · M7b ✅)
 
 **Read this first when resuming.** Deeper detail lives in: `tasks/todo.md` (milestone status +
 decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev gotchas),
@@ -7,20 +7,28 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
 ## Where we are
 - Commits on `main` (all pushed): Push 1 (M1–M4) `a44a337` · M5 custom fields `79a06bd` ·
   M6 magic-link auth `5522289` · **M7a rescue profile + logo + auto-populate `e9801b5`**.
-- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`, clean tree.
+- **M7b save/load flyers is CODE-COMPLETE + verified locally but NOT yet committed** (working tree
+  has the changes — see "Conventions"/git below). Commit it next.
+- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`.
 - **Tier 1 (anonymous) flyer maker** works end-to-end: land → pick a template → add a photo
   (drag/zoom reframe, never auto-cropped) → fill fields → **add your own custom fields** → pick a
   size → download PNG/PDF. Light + dark, mobile + desktop, 6 templates, 4 sizes.
 - **Tier 2 (magic link)** works: sign in → session; **rescue profile** (name/phone/website + logo)
-  **auto-fills new flyers'** contact band on sign-in.
+  **auto-fills new flyers'** contact band on sign-in; **save flyers to the account + reopen them**
+  (My flyers gallery) — photo bytes + a thumbnail stored in R2, full state round-trips.
 
 ## Next: finish M7, then M8 + release
-- **M7b — Save / load flyers** *(next up)*: Worker `POST/GET/DELETE /api/me/flyers` (flyer_data
-  JSON + thumbnail PNG → R2 `bastet-user-assets`, **≤2 MB**, scoped to the session user). Frontend:
-  "Save flyer" (capture full editor state — `fields, badges, customFields, fonts, fosterVsAdopt,
-  feeMode, templateId, nativeDoc`, and decide on `photo`) + a "My flyers" gallery (load / delete,
-  thumbnails). Uploads stay **worker-proxied** (same pattern as the logo — no R2 CORS).
-- **M7c — Private templates + persist custom fields**: `POST/GET /api/me/templates` (layout, no
+- **M7b — Save / load flyers** ✅ DONE (commit pending). As-built: Worker `POST/GET/GET:id/
+  GET:id/thumb/GET:id/photo/DELETE /api/me/flyers` (all `requireAuth`, scoped to the session user).
+  `flyer_data` JSON in D1 = `{version,templateId,nativeDoc,outputSize,fields,badges,customFields,
+  fosterVsAdopt,feeMode,fonts,photo:{transform+hasBytes}|null}`; the **original photo bytes** +
+  a small **thumbnail** go to R2 `bastet-user-assets` (`flyers/<u>/<id>/{photo,thumb}`, worker-
+  proxied → no CORS; caps 10 MB photo / 2 MB thumb; **per-user cap 50**). Frontend: TopBar **Save**
+  button (signed-in only) → `SaveFlyerModal`; **My flyers** gallery (`MyFlyersModal`) from the
+  account menu (load rebuilds the photo from R2 bytes via a data URL → no canvas taint; delete has
+  inline confirm). `EditorContext.loadFlyer(snap, photoState)` swaps all state at once;
+  `nativeDoc` now exposed. New: `src/lib/flyersApi.js`, `src/components/flyers/*`.
+- **M7c — Private templates + persist custom fields** *(next up)*: `POST/GET /api/me/templates` (layout, no
   animal content); "Save as template" + private templates in the gallery. Persist M5 custom-field
   **definitions** to the profile (`PATCH /api/me` already accepts `custom_fields`) and load them on
   sign-in (extend `applyProfile`/`ProfileAutofill`).
@@ -39,7 +47,9 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
 - Public: `GET /api/health`, `GET /api/templates` (approved-only), `GET /api/templates/:id`.
 - Auth (M6): `POST /api/auth/request-link`, `GET /api/auth/verify?token=`, `POST /api/auth/logout`.
 - Me (M6/M7a): `GET /api/me`, `PATCH /api/me`, `POST /api/me/logo`, `GET /api/me/logo`.
-- TODO: `/api/me/flyers*` (M7b), `/api/me/templates*` (M7c), `POST /api/templates` + `/api/admin/*` (M8).
+- Flyers (M7b): `POST /api/me/flyers`, `GET /api/me/flyers`, `GET /api/me/flyers/:id`,
+  `GET /api/me/flyers/:id/thumb`, `GET /api/me/flyers/:id/photo`, `DELETE /api/me/flyers/:id`.
+- TODO: `/api/me/templates*` (M7c), `POST /api/templates` + `/api/admin/*` (M8).
 
 ## Architecture (as-built — do NOT regress)
 - A flyer is a **document** `{ outputSize, width, height, background, elements[] }`, elements in
