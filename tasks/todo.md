@@ -218,6 +218,47 @@ template + remove field → apply LookA restores the custom lane (`["ChipNo"]`);
 4 user actions bump and the loaders don't. The persist effect watches the counter, so opening a saved
 flyer or template never silently overwrites the rescue's saved default fields.
 
+## M8 — Community submissions + admin  *(done ✅)*
+
+Public browser + `GET /api/templates` (approved-only) + `GET /api/templates/:id` already existed.
+**Privacy (PRD critical #2):** the public `templates` row stores only `author_display` + `rescue_name`
+from the profile — NEVER the email; the table has no user_id by design. `template_data` = the same
+layout snapshot as private templates (`{version,nativeDoc,outputSize,fonts,customFields,templateId}`),
+applied via the unified `applyUserTemplate`. Community thumbnails → `bastet-templates` (TEMPLATES_BUCKET).
+
+**Worker:**
+- [x] db.js: `createPendingTemplate`, `listTemplatesByStatus`, `getTemplateAnyStatus`, `setTemplateStatus`.
+- [x] lib/admin.js: `requireAdmin` — `Authorization: Bearer <ADMIN_BEARER_TOKEN>`. Dev fallback token
+  ONLY when `RESEND_API_KEY` unset (same dev signal as auth); prod with no token set → admin locked (401/503).
+- [x] routes/templates.js: `POST /api/templates` (requireAuth, multipart: name/description/category/
+  mood_tags/template_data/thumb → pending; author from profile, no email) + public `GET /:id/thumb`
+  (approved only) from TEMPLATES_BUCKET.
+- [x] routes/admin.js (new, mounted `/api/admin`): `GET /templates/pending`, `GET /templates/:id/thumb`
+  (any status, for review), `POST /templates/:id/approve`, `POST /templates/:id/reject` (delete thumb).
+
+**Frontend:**
+- [x] lib/communityApi.js: `submitTemplate` + admin `adminListPending`/`adminApprove`/`adminReject` (bearer).
+- [x] `ShareTemplateModal` (name, category chips, mood chips, description → snapshot + thumb → submit;
+  "pending review" confirmation). Added to TopBar Save menu as "Share with community" (signed-in only).
+- [x] `CommunityTemplates`: thumbnails (public `/:id/thumb`) + apply via `applyUserTemplate`
+  (handles both the wrapped snapshot and a legacy raw-document `template_data`).
+- [x] `AdminPage` (hash route `#admin`, no SPA fallback): token field (localStorage) → pending queue
+  with thumbnails (fetched with the bearer header → object URLs) + metadata + Approve/Reject.
+  `App.jsx` renders it on `#admin` (listens to `hashchange`).
+
+**Verified:** curl — submit (auth → pending; NOT in public list) → admin no-token 401 → dev-token
+pending list → **email absent from submit + admin payloads** (present only in `/api/me`, by design) →
+author_display/rescue_name/mood/category all flow → approve → appears in public + public thumb 200 +
+`GET :id` returns the snapshot → reject removes from queue. Playwright — Save → Share with community →
+"pending review"; `#admin` → load queue → Approve; community browser shows it with a thumbnail and
+applies. Build clean; no `console.log` of tokens/user data.
+
+**Design note:** admin is a static bearer token (NOT a session — CLAUDE.md gotcha #10). Dev fallback
+(`dev-admin-token`) is gated on `!RESEND_API_KEY` so prod (RESEND set) is never open with a default;
+if prod has no `ADMIN_BEARER_TOKEN`, admin returns 503/401 (locked) rather than silently open. Admin UI
+uses a `#admin` hash route so no SPA fallback / router is needed on CF Pages. Pending thumbnails can't
+use `<img src>` (needs the auth header) → fetched as blobs → object URLs.
+
 ---
 
 ## Review

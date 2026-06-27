@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useEditor } from '../../state/EditorContext.jsx'
 
-// Approved community templates from the Worker (GET /api/templates). Empty until rescues start
-// submitting (M8) and an admin approves them — so the common case here is a warm empty state.
+// Approved community templates from the Worker (GET /api/templates). Empty until rescues submit
+// (M8) and an admin approves them — so the common case here is a warm empty state.
 export default function CommunityTemplates({ onApplied }) {
-  const { loadTemplate } = useEditor()
+  const { applyUserTemplate } = useEditor()
   const [status, setStatus] = useState('loading') // loading | ready | error
   const [items, setItems] = useState([])
+  const [busyId, setBusyId] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -20,15 +21,25 @@ export default function CommunityTemplates({ onApplied }) {
   }, [])
 
   const apply = async (id) => {
+    setBusyId(id)
     try {
       const r = await fetch(`/api/templates/${id}`)
       const d = await r.json()
-      if (d?.template_data?.elements) {
-        loadTemplate({ id: `community-${id}`, document: d.template_data })
+      const td = d?.template_data
+      // Accept the layout-snapshot shape ({nativeDoc,...}) and a legacy raw document ({elements}).
+      const snap = td?.nativeDoc
+        ? td
+        : td?.elements
+          ? { nativeDoc: td, outputSize: td.outputSize }
+          : null
+      if (snap) {
+        applyUserTemplate(snap)
         onApplied?.()
       }
     } catch {
       /* ignore — the editor keeps its current flyer */
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -52,28 +63,52 @@ export default function CommunityTemplates({ onApplied }) {
           <p className="text-2xl" aria-hidden>🌱</p>
           <p className="mt-1 text-[14px] font-semibold text-ink">No community templates yet</p>
           <p className="mt-1 text-[13px] text-ink-faint">
-            Rescues will be able to share their best flyers here soon.
+            Rescues can share their best flyers here — try <strong>Save → Share with community</strong>.
           </p>
         </div>
       )}
 
       {status === 'ready' && items.length > 0 && (
-        <div className="grid gap-2">
+        <div className="grid grid-cols-2 gap-2.5">
           {items.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => apply(t.id)}
-              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface px-3.5 py-3 text-left transition hover:bg-sunken"
-            >
-              <span className="grid">
-                <span className="text-[14px] font-semibold text-ink">{t.name}</span>
-                <span className="text-[12px] text-ink-faint">
-                  {[t.rescue_name, t.author_display].filter(Boolean).join(' · ') || 'Community'}
+            <div key={t.id} className="overflow-hidden rounded-2xl border border-border bg-surface">
+              <button
+                type="button"
+                onClick={() => apply(t.id)}
+                disabled={busyId === t.id}
+                className="block w-full"
+                aria-label={`Use ${t.name}`}
+              >
+                <span className="grid aspect-square place-items-center overflow-hidden bg-sunken">
+                  {t.has_thumbnail ? (
+                    <img
+                      src={`/api/templates/${t.id}/thumb`}
+                      alt={t.name}
+                      className="h-full w-full object-contain transition hover:scale-[1.02]"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span aria-hidden className="text-3xl opacity-40">🎨</span>
+                  )}
                 </span>
-              </span>
-              <span className="text-[13px] font-semibold text-primary-press">Use</span>
-            </button>
+              </button>
+              <div className="grid gap-1.5 p-2.5">
+                <span className="truncate text-[13px] font-semibold text-ink" title={t.name}>
+                  {t.name}
+                </span>
+                <span className="truncate text-[11px] text-ink-faint">
+                  {[t.rescue_name, t.author_display].filter(Boolean)[0] || 'Community'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => apply(t.id)}
+                  disabled={busyId === t.id}
+                  className="mt-0.5 rounded-lg bg-primary px-2 py-1.5 text-[12px] font-bold text-on-primary transition hover:bg-primary-hover disabled:opacity-60"
+                >
+                  {busyId === t.id ? 'Applying…' : 'Use'}
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       )}

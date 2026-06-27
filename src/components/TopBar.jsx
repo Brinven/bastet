@@ -14,7 +14,7 @@ const SIZE_HINTS = {
 
 // Sticky top bar: brand (left) + output-size picker and the primary Download action (right).
 // Signed-in (Tier 2) users also get a Save menu (this flyer, or its look as a template).
-export default function TopBar({ onDownload, downloading, onSaveFlyer, onSaveTemplate }) {
+export default function TopBar({ onDownload, downloading, onSaveFlyer, onSaveTemplate, onShareTemplate }) {
   const { doc, outputSize, setOutputSize } = useEditor()
   const { user } = useAuth()
   const sizeLabel = OUTPUT_SIZES[doc.outputSize]?.label ?? 'Flyer'
@@ -106,6 +106,11 @@ export default function TopBar({ onDownload, downloading, onSaveFlyer, onSaveTem
                   label="Save as template"
                   hint="Just the look, to reuse"
                   onClick={() => { onSaveTemplate(); close() }}
+                />
+                <MenuAction
+                  label="Share with community"
+                  hint="Submit the look for others"
+                  onClick={() => { onShareTemplate(); close() }}
                 />
               </div>
             )}

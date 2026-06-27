@@ -6,12 +6,14 @@ import { loadImageFile, isLowRes, loadImageSrc, blobToDataURL } from '../../lib/
 import { exportToPNG, exportToPDF, exportThumbnailBlob } from '../../lib/export.js'
 import { saveFlyer } from '../../lib/flyersApi.js'
 import { saveUserTemplate } from '../../lib/userTemplatesApi.js'
+import { submitTemplate } from '../../lib/communityApi.js'
 import TopBar from '../TopBar.jsx'
 import EditorCanvas from './EditorCanvas.jsx'
 import ControlPanel from '../fields/ControlPanel.jsx'
 import TemplateGallery from '../templates/TemplateGallery.jsx'
 import SaveFlyerModal from '../flyers/SaveFlyerModal.jsx'
 import SaveTemplateModal from '../templates/SaveTemplateModal.jsx'
+import ShareTemplateModal from '../templates/ShareTemplateModal.jsx'
 
 // Fill contact fields from the signed-in rescue profile once per login (empties only).
 function ProfileAutofill() {
@@ -108,6 +110,7 @@ export default function Editor() {
   const [downloading, setDownloading] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [tab, setTab] = useState('edit') // 'edit' | 'templates'
 
   const openDialog = () => fileInputRef.current?.click()
@@ -180,6 +183,23 @@ export default function Editor() {
     return await saveUserTemplate({ name, snapshot, thumbBlob })
   }
 
+  // Share the current layout with the community library (M8). Same layout snapshot as a private
+  // template, plus the metadata from the form. Lands as pending review; only the rescue name is
+  // attached server-side (never the email).
+  const handleShareTemplate = async ({ name, description, category, moodTags }) => {
+    if (!stageRef.current) return { ok: false, error: 'Canvas not ready.' }
+    const snapshot = {
+      version: 1,
+      templateId,
+      nativeDoc,
+      outputSize: doc.outputSize,
+      fonts,
+      customFields,
+    }
+    const thumbBlob = await exportThumbnailBlob(stageRef, doc.outputSize)
+    return await submitTemplate({ name, description, category, moodTags, snapshot, thumbBlob })
+  }
+
   const handleDownload = async (format = 'png') => {
     if (!stageRef.current) return
     setDownloading(true)
@@ -212,6 +232,7 @@ export default function Editor() {
         downloading={downloading}
         onSaveFlyer={() => setSaveOpen(true)}
         onSaveTemplate={() => setSaveTemplateOpen(true)}
+        onShareTemplate={() => setShareOpen(true)}
       />
 
       <SaveFlyerModal
@@ -226,6 +247,13 @@ export default function Editor() {
         onClose={() => setSaveTemplateOpen(false)}
         defaultName="My template"
         onSave={handleSaveTemplate}
+      />
+
+      <ShareTemplateModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        defaultName=""
+        onSave={handleShareTemplate}
       />
 
       <input

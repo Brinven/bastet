@@ -1,14 +1,17 @@
-# Bastet — Handoff (Push 2 in progress — M5 ✅ · M6 ✅ · M7a ✅ · M7b ✅ · M7c ✅)
+# Bastet — Handoff (Push 2 — M5 ✅ · M6 ✅ · M7 ✅ · M8 ✅ — ALL FEATURES DONE; release docs/deploy left)
 
 **Read this first when resuming.** Deeper detail lives in: `tasks/todo.md` (milestone status +
 decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev gotchas),
 `bastet-PRD.md` + `CLAUDE.md` (spec).
 
 ## Where we are
-- Commits on `main` (all pushed): Push 1 (M1–M4) `a44a337` · M5 custom fields `79a06bd` ·
-  M6 magic-link auth `5522289` · M7a rescue profile + logo + auto-populate `e9801b5` ·
-  M7b save/load flyers `f191da6` · **M7c private templates + custom-field persistence `c830e42`**.
-- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`, clean tree.
+- Commits on `main` (all pushed): Push 1 (M1–M4) `a44a337` · M5 `79a06bd` · M6 `5522289` ·
+  M7a `e9801b5` · M7b `f191da6` · M7c `c830e42` · M7 logo-on-flyer `b1872cf`.
+- **M8 community submissions + admin is CODE-COMPLETE + verified locally but NOT yet committed**
+  (working tree has the changes). Commit it next.
+- Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`.
+- **All MVP features (M1–M8) are done.** Remaining = release: README, CONTRIBUTING, one-click CF
+  deploy button, prod deploy (+ Resend domain for prod email).
 - **Tier 1 (anonymous) flyer maker** works end-to-end: land → pick a template → add a photo
   (drag/zoom reframe, never auto-cropped) → fill fields → **add your own custom fields** → pick a
   size → download PNG/PDF. Light + dark, mobile + desktop, 6 templates, 4 sizes.
@@ -46,11 +49,19 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
   right. Session-level (same logo across all the rescue's flyers) → NOT stored per flyer/template.
   Verified (Playwright): upload via profile modal → shows on the band → Download PNG still exports
   (no taint). **This closes M7 (a/b/c + follow-up).**
-- **M8 — Community submissions + admin**: submit form (Tier 2) `POST /api/templates`; admin approval
-  (`/api/admin/templates/*`, **bearer token** `ADMIN_BEARER_TOKEN`, not session) + minimal admin UI;
-  appears in the community browser once approved. The browser + `GET /api/templates` (approved-only)
-  already exist and work.
-- **Then:** README, CONTRIBUTING.md (template guidelines), one-click CF deploy button, prod deploy.
+- **M8 — Community submissions + admin** ✅ DONE (commit pending). Submit (Tier 2) via Save menu →
+  "Share with community" (`ShareTemplateModal`: name/category/mood/description) → `POST /api/templates`
+  → status `pending`; the public row stores only `author_display`+`rescue_name` (NEVER email). Admin
+  router `/api/admin/templates/{pending,:id/thumb,:id/approve,:id/reject}` gated by `requireAdmin`
+  (`lib/admin.js`, **bearer** `ADMIN_BEARER_TOKEN`, NOT session; dev fallback `dev-admin-token` only
+  when `RESEND_API_KEY` unset → prod stays locked). Minimal admin UI = **`#admin` hash route**
+  (`AdminPage`, no SPA fallback needed; token in localStorage; pending thumbs fetched as blobs→object
+  URLs since `<img>` can't send the auth header). `CommunityTemplates` now shows thumbnails + applies
+  via `applyUserTemplate`. Community thumbs live in **TEMPLATES_BUCKET** (`community/<id>/thumb`).
+  New: `src/worker/lib/admin.js`, `src/worker/routes/admin.js`, `src/lib/communityApi.js`,
+  `src/components/templates/ShareTemplateModal.jsx`, `src/components/admin/AdminPage.jsx`.
+- **Then (only release work left):** README, CONTRIBUTING.md (template guidelines), one-click CF deploy
+  button, prod deploy + **`wrangler secret put ADMIN_BEARER_TOKEN`** + Resend domain for prod email.
 
 ## API surface (as-built)
 - Public: `GET /api/health`, `GET /api/templates` (approved-only), `GET /api/templates/:id`.
@@ -60,7 +71,9 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
   `GET /api/me/flyers/:id/thumb`, `GET /api/me/flyers/:id/photo`, `DELETE /api/me/flyers/:id`.
 - Private templates (M7c): `POST /api/me/templates`, `GET /api/me/templates`, `GET /api/me/templates/:id`,
   `GET /api/me/templates/:id/thumb`, `DELETE /api/me/templates/:id`.
-- TODO: `POST /api/templates` (submit) + `/api/admin/*` (M8).
+- Community (M8): `POST /api/templates` (submit, requireAuth), `GET /api/templates/:id/thumb` (public),
+  `GET /api/admin/templates/pending`, `GET /api/admin/templates/:id/thumb`,
+  `POST /api/admin/templates/:id/{approve,reject}` (all `/api/admin/*` = bearer token).
 
 ## Architecture (as-built — do NOT regress)
 - A flyer is a **document** `{ outputSize, width, height, background, elements[] }`, elements in

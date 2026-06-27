@@ -21,6 +21,59 @@ export async function listApprovedTemplates(db, { limit = 50, category } = {}) {
   return results ?? []
 }
 
+// ── Community submissions + admin (M8) ─────────────────────────────────────────────────────────
+// The public `templates` row is intentionally decoupled from `users` (no user_id, no email) — it
+// carries only a public author_display + rescue_name (PRD critical accuracy #2).
+
+export async function createPendingTemplate(db, id, t) {
+  await db
+    .prepare(
+      `INSERT INTO templates
+         (id, name, description, author_display, rescue_name, category, mood_tags,
+          thumbnail_key, template_data, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`
+    )
+    .bind(
+      id,
+      t.name,
+      t.description ?? '',
+      t.author_display ?? 'Anonymous',
+      t.rescue_name ?? null,
+      t.category ?? 'general',
+      t.mood_tags ?? '[]',
+      t.thumbnail_key ?? null,
+      t.template_data
+    )
+    .run()
+  return await getTemplateAnyStatus(db, id)
+}
+
+// Any-status fetch (admin review + thumbnail serving). Public reads still use getApprovedTemplate.
+export async function getTemplateAnyStatus(db, id) {
+  return await db.prepare(`SELECT * FROM templates WHERE id = ?`).bind(id).first()
+}
+
+export async function listTemplatesByStatus(db, status = 'pending') {
+  const { results } = await db
+    .prepare(
+      `SELECT id, name, description, author_display, rescue_name, category, mood_tags,
+              thumbnail_key, status, created_at
+         FROM templates
+        WHERE status = ?
+        ORDER BY created_at ASC`
+    )
+    .bind(status)
+    .all()
+  return results ?? []
+}
+
+export async function setTemplateStatus(db, id, status) {
+  await db
+    .prepare(`UPDATE templates SET status = ?, updated_at = datetime('now') WHERE id = ?`)
+    .bind(status, id)
+    .run()
+}
+
 // Single approved template, and bump its download_count. Returns null if not found.
 export async function getApprovedTemplate(db, id) {
   const row = await db
