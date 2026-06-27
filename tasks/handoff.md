@@ -9,8 +9,10 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
   M7a `e9801b5` · M7b `f191da6` · M7c `c830e42` · M7 logo-on-flyer `b1872cf` ·
   **M8 community submissions + admin `8a59310`**.
 - Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`, clean tree.
-- **All MVP features (M1–M8) are done + pushed.** Remaining = release: README, CONTRIBUTING, one-click
-  CF deploy button, prod deploy (+ Resend domain for prod email).
+- **All MVP features (M1–M8) are done + pushed.** Release docs **README.md + CONTRIBUTING.md (with
+  community-template guidelines) + LICENSE** are written (commit pending). Remaining = **prod deploy**
+  (CF Pages static + Worker; D1/R2 already exist remotely; set `ADMIN_BEARER_TOKEN`) + **Resend domain**
+  for prod email — planned for the morning (user will need guidance on the Resend setup).
 - **Tier 1 (anonymous) flyer maker** works end-to-end: land → pick a template → add a photo
   (drag/zoom reframe, never auto-cropped) → fill fields → **add your own custom fields** → pick a
   size → download PNG/PDF. Light + dark, mobile + desktop, 6 templates, 4 sizes.
@@ -59,8 +61,12 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
   via `applyUserTemplate`. Community thumbs live in **TEMPLATES_BUCKET** (`community/<id>/thumb`).
   New: `src/worker/lib/admin.js`, `src/worker/routes/admin.js`, `src/lib/communityApi.js`,
   `src/components/templates/ShareTemplateModal.jsx`, `src/components/admin/AdminPage.jsx`.
-- **Then (only release work left):** README, CONTRIBUTING.md (template guidelines), one-click CF deploy
-  button, prod deploy + **`wrangler secret put ADMIN_BEARER_TOKEN`** + Resend domain for prod email.
+- **Release — docs DONE (commit pending):** `README.md` (what/who, no-tracking statement, 5-step local
+  dev, deploy guide, Deploy-to-Cloudflare button), `CONTRIBUTING.md` (house rules + community-template
+  guidelines), `LICENSE` (MIT, already present). **Still to do:** prod deploy (CF Pages `dist/` + Worker
+  `wrangler deploy`; D1 `bastet-db` + R2 buckets already exist remotely; `wrangler secret put
+  ADMIN_BEARER_TOKEN`) + **Resend** verified sending domain → `RESEND_API_KEY`/`MAGIC_LINK_FROM`/
+  `MAGIC_LINK_BASE_URL`. Resend reuses the **axly-wallpapers** stack (existing account) — do with the user.
 
 ## API surface (as-built)
 - Public: `GET /api/health`, `GET /api/templates` (approved-only), `GET /api/templates/:id`.
