@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 import { getDefaultFlyer } from '../lib/defaultFlyer.js'
 import { FIELDS } from '../lib/fieldBindings.js'
 import { refitDocument } from '../lib/refit.js'
+import { resolvePalette, getStoredThemeId } from '../lib/themes.js'
 
 const EditorContext = createContext(null)
 
@@ -52,6 +53,16 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
   // flyer/template snapshot — it's the same logo across all of a rescue's flyers.
   const [logo, setLogo] = useState(null)
   const [fonts, setFonts] = useState(seed?.fonts ?? { global: DEFAULT_FLYER_FONT, perElement: {} })
+  // Color theme: the active palette is editor state (like fonts) — `{ id, accent? }`. It persists
+  // across template switches and saves with a flyer; `resolvedPalette` is the role→color map the
+  // renderers read. New flyers start in the user's last-chosen app theme.
+  const [palette, setPaletteState] = useState(() => ({
+    id: seed?.palette?.id ?? getStoredThemeId(),
+    accent: seed?.palette?.accent ?? null,
+  }))
+  const resolvedPalette = useMemo(() => resolvePalette(palette), [palette])
+  const setPaletteId = useCallback((id) => setPaletteState((p) => ({ ...p, id })), [])
+  const setCustomAccent = useCallback((accent) => setPaletteState((p) => ({ ...p, accent: accent || null })), [])
   // Tier-1 custom fields (M5): ordered definitions; their VALUES live in `fields`/`badges`
   // (both maps are keyed by arbitrary id, so custom_<uuid> ids slot in alongside built-ins).
   const [customFields, setCustomFields] = useState(() => seed?.customFields ?? [])
@@ -215,6 +226,7 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
     setFosterVsAdopt(snap.fosterVsAdopt ?? 'adopt')
     setFeeMode(snap.feeMode ?? 'fee')
     setFonts(snap.fonts ?? { global: DEFAULT_FLYER_FONT, perElement: {} })
+    setPaletteState(snap.palette ?? { id: 'warm', accent: null })
     setPhoto(photoState)
     setSelectedId(null)
   }, [])
@@ -228,6 +240,7 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
     setOutputSizeState(snap.outputSize || snap.nativeDoc.outputSize || 'instagram_post')
     setTemplateId(snap.templateId || 'custom')
     if (snap.fonts) setFonts(snap.fonts)
+    if (snap.palette) setPaletteState(snap.palette)
     if (Array.isArray(snap.customFields) && snap.customFields.length) {
       setCustomFields(snap.customFields)
       seedCustomValues(snap.customFields)
@@ -248,6 +261,7 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
       photo, loadPhoto, setPhotoTransform, clearPhoto,
       logo, setLogo,
       fonts, setGlobalFont, setElementFont, fontFor,
+      palette, resolvedPalette, setPaletteId, setCustomAccent,
       selectedId, select,
     }),
     [
@@ -257,7 +271,8 @@ export function EditorProvider({ children, initialDoc, seed, interactive = true 
       customFields, customFieldsRev, addCustomField, removeCustomField, renameCustomField,
       moveCustomField, setCustomFieldsFromProfile,
       fosterVsAdopt, feeMode, photo, loadPhoto, setPhotoTransform, clearPhoto, logo, setLogo,
-      fonts, setGlobalFont, setElementFont, fontFor, selectedId, select,
+      fonts, setGlobalFont, setElementFont, fontFor,
+      palette, resolvedPalette, setPaletteId, setCustomAccent, selectedId, select,
     ]
   )
 

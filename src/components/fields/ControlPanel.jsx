@@ -5,6 +5,7 @@ import { Field, TextArea, Switch, Segmented } from '../ui/Controls.jsx'
 import Collapsible from '../ui/Collapsible.jsx'
 import PhotoControl from './PhotoControl.jsx'
 import FontPicker from './FontPicker.jsx'
+import ColorThemePicker from './ColorThemePicker.jsx'
 import CustomFields from './CustomFields.jsx'
 
 const BADGE_ORDER = [
@@ -112,7 +113,11 @@ export default function ControlPanel({ photo }) {
       </Collapsible>
 
       <Collapsible title="Style" glyph="🎨">
-        <FontPicker />
+        <div className="grid gap-4">
+          <ColorThemePicker />
+          <div className="border-t border-border" />
+          <FontPicker />
+        </div>
       </Collapsible>
     </div>
   )

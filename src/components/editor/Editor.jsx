@@ -102,7 +102,7 @@ export default function Editor() {
   const editor = useEditor()
   const {
     doc, nativeDoc, templateId, fields, badges, customFields, fosterVsAdopt, feeMode, fonts, photo,
-    loadPhoto, clearPhoto,
+    palette, loadPhoto, clearPhoto,
   } = editor
   const stageRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -151,6 +151,7 @@ export default function Editor() {
       fosterVsAdopt,
       feeMode,
       fonts,
+      palette,
       photo: photo
         ? {
             naturalWidth: photo.naturalWidth,
@@ -177,6 +178,7 @@ export default function Editor() {
       nativeDoc,
       outputSize: doc.outputSize,
       fonts,
+      palette,
       customFields,
     }
     const thumbBlob = await exportThumbnailBlob(stageRef, doc.outputSize)
@@ -194,6 +196,7 @@ export default function Editor() {
       nativeDoc,
       outputSize: doc.outputSize,
       fonts,
+      palette,
       customFields,
     }
     const thumbBlob = await exportThumbnailBlob(stageRef, doc.outputSize)

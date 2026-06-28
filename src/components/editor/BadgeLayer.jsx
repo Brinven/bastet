@@ -1,6 +1,7 @@
 import { Group, Rect, Text } from 'react-konva'
 import { useEditor } from '../../state/EditorContext.jsx'
 import { BADGE_META } from '../../lib/defaultFlyer.js'
+import { resolveColor } from '../../lib/themes.js'
 
 // Real text measurement so chips size to their label and wrap cleanly (no overflow).
 let _measureCtx = null
@@ -17,7 +18,7 @@ function measureText(text, font) {
 // "Good with…" + spayed/neutered as warm pills. Only enabled badges render; they flow
 // left-to-right and wrap within the element's width.
 export function FlyerBadges({ element }) {
-  const { badges, customFields, fonts } = useEditor()
+  const { badges, customFields, fonts, resolvedPalette } = useEditor()
   const family = fonts.global
   const k = element._k ?? 1
   const CHIP_H = 58 * k
@@ -52,6 +53,10 @@ export function FlyerBadges({ element }) {
     cx += chipW + CHIP_GAP
   }
 
+  const chipBg = resolveColor('role:chipBg', resolvedPalette)
+  const chipBorder = resolveColor('role:chipBorder', resolvedPalette)
+  const onChip = resolveColor('role:onChip', resolvedPalette)
+
   return (
     <Group x={element.x} y={element.y} listening={false}>
       {chips.map((c) => (
@@ -60,8 +65,8 @@ export function FlyerBadges({ element }) {
             width={c.chipW}
             height={CHIP_H}
             cornerRadius={CHIP_H / 2}
-            fill="#fdf0d8"
-            stroke="#f0d49a"
+            fill={chipBg}
+            stroke={chipBorder}
             strokeWidth={2 * k}
           />
           <Text text={c.glyph} x={CHIP_PAD - 4 * k} y={0} height={CHIP_H} verticalAlign="middle" fontSize={CHIP_FS} />
@@ -74,7 +79,7 @@ export function FlyerBadges({ element }) {
             fontFamily={`${family}, sans-serif`}
             fontStyle="600"
             fontSize={CHIP_FS}
-            fill="#7a5a1e"
+            fill={onChip}
           />
         </Group>
       ))}
@@ -84,7 +89,7 @@ export function FlyerBadges({ element }) {
 
 // Adoption fee, or a celebratory "Sponsored!" when the rescue is covering it.
 export function FlyerFee({ element }) {
-  const { fields, feeMode, fonts } = useEditor()
+  const { fields, feeMode, fonts, resolvedPalette } = useEditor()
   const family = fonts.global
   const k = element._k ?? 1
   const fs = 30 * k
@@ -112,7 +117,12 @@ export function FlyerFee({ element }) {
 
   return (
     <Group x={x} y={element.y} listening={false}>
-      <Rect width={w} height={h} cornerRadius={h / 2} fill={muted ? 'rgba(43,33,26,0.05)' : '#2b211a'} />
+      <Rect
+        width={w}
+        height={h}
+        cornerRadius={h / 2}
+        fill={muted ? resolveColor('role:chipBg', resolvedPalette) : resolveColor('role:feeBg', resolvedPalette)}
+      />
       <Text
         text={label}
         width={w}
@@ -122,7 +132,7 @@ export function FlyerFee({ element }) {
         fontFamily={`${family}, sans-serif`}
         fontStyle="700"
         fontSize={fs}
-        fill={muted ? '#b6ab95' : '#faf5ec'}
+        fill={muted ? resolveColor('role:placeholder', resolvedPalette) : resolveColor('role:onFee', resolvedPalette)}
       />
     </Group>
   )
@@ -130,7 +140,7 @@ export function FlyerFee({ element }) {
 
 // "Adopt me" / "Foster me" — a small CTA pill that overlaps the photo.
 export function FlyerStatusTag({ element }) {
-  const { fosterVsAdopt, fonts } = useEditor()
+  const { fosterVsAdopt, fonts, resolvedPalette } = useEditor()
   const family = fonts.global
   const k = element._k ?? 1
   const fs = 28 * k
@@ -145,7 +155,7 @@ export function FlyerStatusTag({ element }) {
         width={w}
         height={h}
         cornerRadius={h / 2}
-        fill="#e8a33d"
+        fill={resolveColor('role:tagBg', resolvedPalette)}
         shadowColor="rgba(43,33,26,0.35)"
         shadowBlur={18 * k}
         shadowOffsetY={6 * k}
@@ -160,7 +170,7 @@ export function FlyerStatusTag({ element }) {
         fontFamily={`${family}, sans-serif`}
         fontStyle="800"
         fontSize={fs}
-        fill="#2b211a"
+        fill={resolveColor('role:onTag', resolvedPalette)}
       />
     </Group>
   )

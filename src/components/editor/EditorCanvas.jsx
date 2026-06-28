@@ -6,6 +6,7 @@ import FlyerText from './FlyerText.jsx'
 import FlyerCustom from './FlyerCustom.jsx'
 import ContactBlock from './ContactBlock.jsx'
 import { FlyerBadges, FlyerFee, FlyerStatusTag } from './BadgeLayer.jsx'
+import { resolveColor } from '../../lib/themes.js'
 
 // Elements are authored in OUTPUT (1080-based) coordinates. We render the Stage at a preview
 // size that fits the container and scale a single Layer by (preview / output). The provided
@@ -15,7 +16,7 @@ import { FlyerBadges, FlyerFee, FlyerStatusTag } from './BadgeLayer.jsx'
 // `interactive=false` + `fixedWidth` render a read-only thumbnail (used by the template gallery),
 // reusing the exact same element renderers so previews match the editor.
 export default function EditorCanvas({ stageRef, onRequestPhoto, interactive = true, fixedWidth = null }) {
-  const { doc, select } = useEditor()
+  const { doc, select, resolvedPalette } = useEditor()
   const boxRef = useRef(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
 
@@ -67,7 +68,7 @@ export default function EditorCanvas({ stageRef, onRequestPhoto, interactive = t
             y={0}
             width={doc.width}
             height={doc.height}
-            fill={doc.background}
+            fill={resolveColor(doc.background, resolvedPalette)}
             onClick={interactive ? () => select(null) : undefined}
             onTap={interactive ? () => select(null) : undefined}
           />

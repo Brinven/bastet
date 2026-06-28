@@ -1,14 +1,17 @@
 import { Group, Rect, Text, Image as KonvaImage } from 'react-konva'
 import { useEditor } from '../../state/EditorContext.jsx'
 import { FIELDS } from '../../lib/fieldBindings.js'
+import { resolveColor } from '../../lib/themes.js'
 
 // Composite footer: optional rescue logo (left) + rescue name + phone · website (right). Usually on
 // a warm band, but `band` may be omitted (e.g. overlaying a photo scrim). Empty fields show faint
 // sample copy (via opacity, so it reads correctly on any band color) so the flyer looks finished.
 export default function ContactBlock({ element }) {
-  const { fields, fonts, logo } = useEditor()
+  const { fields, fonts, logo, resolvedPalette } = useEditor()
   const family = fonts.global
-  const { x, y, width, height, band, fill = '#2b211a' } = element
+  const { x, y, width, height } = element
+  const band = resolveColor(element.band, resolvedPalette)
+  const fill = resolveColor(element.fill ?? 'role:onBand', resolvedPalette)
   const k = element._k ?? 1
   const padX = element.padX ?? 64 * k
 

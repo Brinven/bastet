@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { Group, Image as KonvaImage, Rect, Text, Circle } from 'react-konva'
 import { useEditor } from '../../state/EditorContext.jsx'
+import { resolveColor } from '../../lib/themes.js'
 
 function roundRectPath(ctx, x, y, w, h, r) {
   const radius = Math.min(r, w / 2, h / 2)
@@ -23,7 +24,7 @@ function clamp(v, min, max) {
 // and zooms (slider/wheel) WITHIN the clip. We never crop programmatically — the whole photo
 // stays reachable; the user decides the framing.
 export default function FlyerPhoto({ element, interactive }) {
-  const { photo, setPhotoTransform, selectedId, select } = useEditor()
+  const { photo, setPhotoTransform, selectedId, select, resolvedPalette } = useEditor()
   const imgRef = useRef(null)
   const { x, y, width: w, height: h, radius = 24 } = element
   const selected = selectedId === element.id
@@ -78,7 +79,7 @@ export default function FlyerPhoto({ element, interactive }) {
           }}
         />
       ) : (
-        <PhotoPlaceholder w={w} h={h} interactive={interactive} k={element._k ?? 1} />
+        <PhotoPlaceholder w={w} h={h} interactive={interactive} k={element._k ?? 1} palette={resolvedPalette} />
       )}
 
       {/* Selection hairline — drawn last so it sits above the image, clipped to the frame. */}
@@ -89,7 +90,7 @@ export default function FlyerPhoto({ element, interactive }) {
           width={w - 3}
           height={h - 3}
           cornerRadius={radius}
-          stroke={selected ? '#e8a33d' : 'rgba(43,33,26,0.10)'}
+          stroke={selected ? resolveColor('role:accent', resolvedPalette) : 'rgba(43,33,26,0.10)'}
           strokeWidth={selected ? 5 : 2}
           listening={false}
         />
@@ -98,9 +99,11 @@ export default function FlyerPhoto({ element, interactive }) {
   )
 }
 
-function PhotoPlaceholder({ w, h, interactive, k = 1 }) {
-  // Read-only previews (template gallery) show a warm gradient stand-in for the photo,
-  // not the "tap to add" prompt.
+function PhotoPlaceholder({ w, h, interactive, k = 1, palette }) {
+  // Soft palette-tinted stand-in so an empty photo frame matches the active theme (warm by default).
+  const tintA = palette?.chipBg || '#ece3d4'
+  const tintB = palette?.chipBorder || '#d8cab2'
+  // Read-only previews (template gallery) show just the tinted gradient, not the "tap to add" prompt.
   if (!interactive) {
     return (
       <Rect
@@ -111,14 +114,14 @@ function PhotoPlaceholder({ w, h, interactive, k = 1 }) {
         listening={false}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
         fillLinearGradientEndPoint={{ x: w, y: h }}
-        fillLinearGradientColorStops={[0, '#f3d9b0', 0.55, '#e9c79a', 1, '#d8e3c4']}
+        fillLinearGradientColorStops={[0, tintA, 1, tintB]}
       />
     )
   }
   return (
     <Group listening={false}>
-      <Rect x={0} y={0} width={w} height={h} fill="#ece3d4" />
-      <Circle x={w / 2} y={h / 2 - 36 * k} radius={48 * k} fill="#d8cab2" />
+      <Rect x={0} y={0} width={w} height={h} fill={tintA} />
+      <Circle x={w / 2} y={h / 2 - 36 * k} radius={48 * k} fill={tintB} />
       <Text text="🐾" x={0} y={h / 2 - 78 * k} width={w} align="center" fontSize={68 * k} />
       <Text
         text="Tap to add a photo"
@@ -129,7 +132,7 @@ function PhotoPlaceholder({ w, h, interactive, k = 1 }) {
         fontFamily="Poppins, sans-serif"
         fontStyle="600"
         fontSize={34 * k}
-        fill="#9b8e79"
+        fill={palette?.inkSoft || '#9b8e79'}
       />
     </Group>
   )

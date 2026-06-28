@@ -8,12 +8,14 @@ import { OUTPUT_SIZES } from './outputSizes.js'
 // Text elements carry a `placeholder` so a first-run flyer reads as a teaching example
 // (faint sample text) rather than a blank rectangle.
 
-const PAPER = '#faf5ec'
-const INK = '#2b211a'
-const INK_SOFT = '#6f6357'
-const INK_BODY = '#4a4038'
-const BAND = '#e8a33d' // marigold footer band (matches brand gold)
-const ON_BAND = '#2b211a'
+// Color ROLES (resolved against the active palette at render time — see lib/themes.js). Authoring
+// flyers against roles instead of literal hex is what lets the color-theme picker retone them.
+const PAPER = 'role:bg'
+const INK = 'role:ink'
+const INK_SOFT = 'role:inkSoft'
+const INK_BODY = 'role:body'
+const BAND = 'role:bandBg'
+const ON_BAND = 'role:onBand'
 
 // Square (Instagram Post) — the default canvas. The vertical rhythm leaves a `custom` lane
 // between the bio and the badge row for M5 custom text fields (invisible until used).

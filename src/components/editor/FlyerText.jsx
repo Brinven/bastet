@@ -1,14 +1,13 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import { useEditor } from '../../state/EditorContext.jsx'
-
-const PLACEHOLDER_FILL = '#b6ab95'
+import { resolveColor } from '../../lib/themes.js'
 
 // Renders both bound text ('text') and the joined meta line ('metaText').
 // Empty fields fall back to faint placeholder copy so the flyer always reads as a complete
 // example (teaching empty state), and empty optional values simply disappear once typed over.
 export default function FlyerText({ element, interactive }) {
-  const { fields, fonts, selectedId, select } = useEditor()
+  const { fields, fonts, selectedId, select, resolvedPalette } = useEditor()
   const ref = useRef(null)
   const [height, setHeight] = useState(0)
 
@@ -32,7 +31,7 @@ export default function FlyerText({ element, interactive }) {
 
   // Font priority: user's per-element override → template's element font → overall flyer font.
   const family = fonts.perElement[element.id] ?? element.fontFamily ?? fonts.global
-  const fill = isEmpty ? PLACEHOLDER_FILL : element.fill
+  const fill = resolveColor(isEmpty ? 'role:placeholder' : element.fill, resolvedPalette)
   const weight = String(element.fontWeight || (element.role === 'display' ? 700 : 400))
   const selected = selectedId === element.id
 

@@ -9,33 +9,39 @@
 */
 @layer base {
   :root {
+    /* Theme controls — a preset sets these on documentElement (see lib/themes.js). Defaults
+       (0 / 1) reproduce the original warm look exactly. Hue rotates every token together;
+       chroma scales saturation (Slate ≈ 0.28). --success stays green, never themed. */
+    --brand-hd: 0;
+    --brand-c: 1;
+
     /* Light — warm paper */
-    --bg: oklch(0.967 0.013 82);
-    --surface: oklch(0.992 0.006 86);
-    --sunken: oklch(0.945 0.018 80);
-    --raised: oklch(0.998 0.004 86);
-    --border: oklch(0.9 0.022 78);
-    --border-strong: oklch(0.83 0.03 76);
+    --bg: oklch(0.967 calc(0.013 * var(--brand-c, 1)) calc(82 + var(--brand-hd, 0)));
+    --surface: oklch(0.992 calc(0.006 * var(--brand-c, 1)) calc(86 + var(--brand-hd, 0)));
+    --sunken: oklch(0.945 calc(0.018 * var(--brand-c, 1)) calc(80 + var(--brand-hd, 0)));
+    --raised: oklch(0.998 calc(0.004 * var(--brand-c, 1)) calc(86 + var(--brand-hd, 0)));
+    --border: oklch(0.9 calc(0.022 * var(--brand-c, 1)) calc(78 + var(--brand-hd, 0)));
+    --border-strong: oklch(0.83 calc(0.03 * var(--brand-c, 1)) calc(76 + var(--brand-hd, 0)));
 
-    --ink: oklch(0.29 0.035 58);
-    --ink-soft: oklch(0.49 0.032 62);
-    --ink-faint: oklch(0.65 0.028 66);
+    --ink: oklch(0.29 calc(0.035 * var(--brand-c, 1)) calc(58 + var(--brand-hd, 0)));
+    --ink-soft: oklch(0.49 calc(0.032 * var(--brand-c, 1)) calc(62 + var(--brand-hd, 0)));
+    --ink-faint: oklch(0.65 calc(0.028 * var(--brand-c, 1)) calc(66 + var(--brand-hd, 0)));
 
-    --primary: oklch(0.76 0.142 73);
-    --primary-hover: oklch(0.72 0.15 71);
-    --primary-press: oklch(0.67 0.152 69);
-    --primary-soft: oklch(0.93 0.05 80);
-    --on-primary: oklch(0.28 0.045 56);
+    --primary: oklch(0.76 calc(0.142 * var(--brand-c, 1)) calc(73 + var(--brand-hd, 0)));
+    --primary-hover: oklch(0.72 calc(0.15 * var(--brand-c, 1)) calc(71 + var(--brand-hd, 0)));
+    --primary-press: oklch(0.67 calc(0.152 * var(--brand-c, 1)) calc(69 + var(--brand-hd, 0)));
+    --primary-soft: oklch(0.93 calc(0.05 * var(--brand-c, 1)) calc(80 + var(--brand-hd, 0)));
+    --on-primary: oklch(0.28 calc(0.045 * var(--brand-c, 1)) calc(56 + var(--brand-hd, 0)));
 
-    --secondary: oklch(0.64 0.165 37);
-    --secondary-soft: oklch(0.93 0.045 45);
-    --on-secondary: oklch(0.99 0.01 60);
+    --secondary: oklch(0.64 calc(0.165 * var(--brand-c, 1)) calc(37 + var(--brand-hd, 0)));
+    --secondary-soft: oklch(0.93 calc(0.045 * var(--brand-c, 1)) calc(45 + var(--brand-hd, 0)));
+    --on-secondary: oklch(0.99 calc(0.01 * var(--brand-c, 1)) calc(60 + var(--brand-hd, 0)));
 
-    --gold: oklch(0.78 0.115 82);
+    --gold: oklch(0.78 calc(0.115 * var(--brand-c, 1)) calc(82 + var(--brand-hd, 0)));
     --success: oklch(0.62 0.12 150);
 
-    --shadow-canvas: oklch(0.5 0.06 60 / 0.28);
-    --shadow-soft: oklch(0.5 0.04 60 / 0.12);
+    --shadow-canvas: oklch(0.5 calc(0.06 * var(--brand-c, 1)) calc(60 + var(--brand-hd, 0)) / 0.28);
+    --shadow-soft: oklch(0.5 calc(0.04 * var(--brand-c, 1)) calc(60 + var(--brand-hd, 0)) / 0.12);
 
     /* the warm cream the default flyer canvas paints on */
     --canvas-paper: #f6efe4;
@@ -45,28 +51,28 @@
   @media (prefers-color-scheme: dark) {
     :root {
       /* Dark — warm charcoal-brown, never cold gray, never pure black */
-      --bg: oklch(0.205 0.016 60);
-      --surface: oklch(0.243 0.019 61);
-      --sunken: oklch(0.183 0.015 58);
-      --raised: oklch(0.275 0.021 62);
-      --border: oklch(0.33 0.02 64);
-      --border-strong: oklch(0.42 0.024 66);
+      --bg: oklch(0.205 calc(0.016 * var(--brand-c, 1)) calc(60 + var(--brand-hd, 0)));
+      --surface: oklch(0.243 calc(0.019 * var(--brand-c, 1)) calc(61 + var(--brand-hd, 0)));
+      --sunken: oklch(0.183 calc(0.015 * var(--brand-c, 1)) calc(58 + var(--brand-hd, 0)));
+      --raised: oklch(0.275 calc(0.021 * var(--brand-c, 1)) calc(62 + var(--brand-hd, 0)));
+      --border: oklch(0.33 calc(0.02 * var(--brand-c, 1)) calc(64 + var(--brand-hd, 0)));
+      --border-strong: oklch(0.42 calc(0.024 * var(--brand-c, 1)) calc(66 + var(--brand-hd, 0)));
 
-      --ink: oklch(0.95 0.012 84);
-      --ink-soft: oklch(0.75 0.018 76);
-      --ink-faint: oklch(0.6 0.022 70);
+      --ink: oklch(0.95 calc(0.012 * var(--brand-c, 1)) calc(84 + var(--brand-hd, 0)));
+      --ink-soft: oklch(0.75 calc(0.018 * var(--brand-c, 1)) calc(76 + var(--brand-hd, 0)));
+      --ink-faint: oklch(0.6 calc(0.022 * var(--brand-c, 1)) calc(70 + var(--brand-hd, 0)));
 
-      --primary: oklch(0.81 0.135 76);
-      --primary-hover: oklch(0.85 0.13 77);
-      --primary-press: oklch(0.76 0.14 74);
-      --primary-soft: oklch(0.32 0.05 72);
-      --on-primary: oklch(0.24 0.04 56);
+      --primary: oklch(0.81 calc(0.135 * var(--brand-c, 1)) calc(76 + var(--brand-hd, 0)));
+      --primary-hover: oklch(0.85 calc(0.13 * var(--brand-c, 1)) calc(77 + var(--brand-hd, 0)));
+      --primary-press: oklch(0.76 calc(0.14 * var(--brand-c, 1)) calc(74 + var(--brand-hd, 0)));
+      --primary-soft: oklch(0.32 calc(0.05 * var(--brand-c, 1)) calc(72 + var(--brand-hd, 0)));
+      --on-primary: oklch(0.24 calc(0.04 * var(--brand-c, 1)) calc(56 + var(--brand-hd, 0)));
 
-      --secondary: oklch(0.72 0.15 40);
-      --secondary-soft: oklch(0.34 0.07 40);
-      --on-secondary: oklch(0.2 0.02 50);
+      --secondary: oklch(0.72 calc(0.15 * var(--brand-c, 1)) calc(40 + var(--brand-hd, 0)));
+      --secondary-soft: oklch(0.34 calc(0.07 * var(--brand-c, 1)) calc(40 + var(--brand-hd, 0)));
+      --on-secondary: oklch(0.2 calc(0.02 * var(--brand-c, 1)) calc(50 + var(--brand-hd, 0)));
 
-      --gold: oklch(0.79 0.11 82);
+      --gold: oklch(0.79 calc(0.11 * var(--brand-c, 1)) calc(82 + var(--brand-hd, 0)));
       --success: oklch(0.72 0.12 152);
 
       --shadow-canvas: oklch(0 0 0 / 0.5);
