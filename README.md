@@ -63,8 +63,7 @@ enough that a technically literate rescue coordinator can audit it in an afterno
 | Styling | Tailwind CSS v3 |
 | Fonts | Curated ~25 Google Fonts |
 | Export | `toDataURL` → PNG, wrapped to PDF via jsPDF (no headless browser) |
-| Hosting | Cloudflare Pages (static frontend) |
-| API | Cloudflare Workers ([Hono](https://hono.dev/)) — all `/api/*` routes |
+| Hosting & API | One Cloudflare Worker — serves the built SPA (Workers Static Assets) **and** all `/api/*` routes ([Hono](https://hono.dev/)) on a single origin |
 | Database | Cloudflare D1 (SQLite) — prepared statements only |
 | Storage | Cloudflare R2 — `bastet-templates`, `bastet-user-assets` |
 | Email | Resend (magic-link delivery only) |
@@ -130,8 +129,9 @@ chosen size — see [`CLAUDE.md`](CLAUDE.md) for the full as-built architecture 
 
 ## Deploy to Cloudflare
 
-Bastet is a static frontend (CF Pages) plus a Worker API (D1 + R2). The "Deploy to Cloudflare"
-button bootstraps the repo; the data resources and secrets are provisioned once with `wrangler`:
+Bastet deploys as **one Cloudflare Worker** that serves both the built SPA (via Workers Static
+Assets) and the `/api/*` API (D1 + R2) on a single origin — no separate Pages project, no CORS.
+Provision the data resources and secrets once with `wrangler`:
 
 ```bash
 # 1. Authenticate (interactive)
@@ -150,16 +150,18 @@ npm run d1:migrate:remote
 # 5. Set production secrets
 npx wrangler secret put ADMIN_BEARER_TOKEN     # gates the community approval queue
 npx wrangler secret put RESEND_API_KEY         # production sign-in email (see below)
-npx wrangler secret put MAGIC_LINK_FROM        # e.g. "Bastet <bastet@yourdomain.org>"
-npx wrangler secret put MAGIC_LINK_BASE_URL    # your production URL, e.g. https://bastet.yourdomain.org
 
-# 6. Build the frontend
+# 6. Build the SPA, then deploy the Worker (which also uploads dist/ as static assets)
 npm run build
+npx wrangler deploy
 ```
 
-Then deploy the built `dist/` to **Cloudflare Pages** and the Worker (`npx wrangler deploy`), with
-`/api/*` routed to the Worker on the same domain (handled by `public/_routes.json`). Uploads are
-proxied through the Worker, so **no R2 CORS configuration is needed**.
+`MAGIC_LINK_FROM` and `MAGIC_LINK_BASE_URL` are non-secret config and live in `wrangler.toml`
+under `[vars]` — edit them to your domain (e.g. `https://bastet.yourdomain.org`). The
+`[assets]` block routes `/api/*` to the Worker (`run_worker_first`) and serves everything else
+as a static asset with SPA fallback. Add your custom domain to the Worker (dashboard → the
+Worker → *Domains & Routes*, or a `routes` entry in `wrangler.toml`). Uploads are proxied through
+the Worker, so **no R2 CORS configuration is needed**.
 
 **Production email (Resend):** magic-link delivery needs a Resend account with a **verified sending
 domain** (SPF + DKIM) — otherwise sign-in mail lands in spam. Until `RESEND_API_KEY` is set,

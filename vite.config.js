@@ -2,7 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // During local dev, the frontend (5173) proxies /api/* to the Worker (wrangler dev :8787).
-// In production this routing is handled by _routes.json on Cloudflare Pages.
+// In production a single Worker serves the built SPA + /api/* on one origin via Workers Static
+// Assets (assets.run_worker_first = ["/api/*"] in wrangler.toml).
 export default defineConfig({
   plugins: [react()],
   server: {

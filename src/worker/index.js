@@ -4,8 +4,9 @@ import auth from './routes/auth.js'
 import me from './routes/me.js'
 import admin from './routes/admin.js'
 
-// Bastet API. All routes live under /api/* (Cloudflare Pages routes /api/* here
-// via _routes.json; in local dev the Vite proxy forwards /api -> :8787).
+// Bastet API. All routes live under /api/*. In production one Worker serves both the SPA and
+// the API: wrangler.toml's `assets.run_worker_first = ["/api/*"]` routes /api/* here before the
+// static-asset layer. In local dev the Vite proxy forwards /api -> :8787.
 const app = new Hono()
 
 app.get('/api/health', (c) =>

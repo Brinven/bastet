@@ -2,6 +2,16 @@ name = "bastet-worker"
 main = "src/worker/index.js"
 compatibility_date = "2024-09-23"
 
+# One Worker serves both the built SPA (dist/) and the /api/* Hono routes on a single origin.
+# Static assets are served first by default, so run_worker_first routes /api/* to the Worker
+# BEFORE the asset layer (required — auth/session checks must run). Everything else is a static
+# asset, with SPA fallback to index.html for unmatched paths. (Needs wrangler >= 4.20 for the
+# run_worker_first array form.)
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+run_worker_first = [ "/api/*" ]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "bastet-db"
@@ -17,8 +27,11 @@ bucket_name = "bastet-user-assets"
 
 [vars]
 ENVIRONMENT = "production"
+# Non-secret config (safe to version-control). In local `wrangler dev` the magic-link base is
+# overridden by the Vite-proxy dev-origin header, so this prod URL does not affect dev links.
+MAGIC_LINK_FROM = "Bastet <bastet@axly.com>"
+MAGIC_LINK_BASE_URL = "https://bastet.axly.com"
 
-# Secrets (set via `wrangler secret put`):
-# RESEND_API_KEY
-# ADMIN_BEARER_TOKEN
-# MAGIC_LINK_BASE_URL
+# Secrets (set via `wrangler secret put`, never committed):
+#   RESEND_API_KEY      — production magic-link email (Resend; axly.com is the verified domain)
+#   ADMIN_BEARER_TOKEN  — gates /api/admin/* (community approval queue)

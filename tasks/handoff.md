@@ -1,4 +1,23 @@
-# Bastet — Handoff (Push 2 — M5 ✅ · M6 ✅ · M7 ✅ · M8 ✅ — ALL FEATURES DONE; release docs/deploy left)
+# Bastet — Handoff (🚀 DEPLOYED & LIVE at https://bastet.axly.com — M1–M8 done, prod up)
+
+## 🚀 Deploy status (2026-06-28) — LIVE
+- **Live at https://bastet.axly.com** (also https://bastet-worker.wkbp5f7wq2.workers.dev).
+- **Hosting model = ONE Cloudflare Worker + Static Assets** (Option A), NOT Pages. The single
+  `bastet-worker` serves the built SPA (`dist/`) AND `/api/*` (Hono) on one origin via
+  `wrangler.toml` `[assets]` with `run_worker_first = ["/api/*"]` (api hits Hono before the asset
+  layer; everything else = static asset, SPA fallback to index.html). The old `public/_routes.json`
+  (Pages-only, never actually wired) was REMOVED. Deploy = `npm run build && npx wrangler deploy`.
+- Custom domain added via CF dashboard (Worker → Domains & Routes); axly.com is a CF zone so DNS+cert
+  auto-provisioned. `MAGIC_LINK_FROM` + `MAGIC_LINK_BASE_URL` are non-secret `[vars]` in wrangler.toml.
+- Secrets set (via `wrangler secret put`): `RESEND_API_KEY` (fresh Bastet key) + `ADMIN_BEARER_TOKEN`.
+- **Verified live:** /api/health env=production; SPA + SPA-fallback; /api/templates 200; /api/me &
+  admin no/!valid-token → 401; request-link → real email (no link leaked = prod mode);
+  `#admin` accepts the real bearer token. Magic-link email DELIVERS (see email note).
+- **Email deliverability:** SPF/DKIM/DMARC(p=reject) all PASS & align for axly.com (verified via DNS).
+  First sign-in email landed in Gmail SPAM — this is new-From-address (`bastet@axly.com`) warmup, NOT
+  misconfig (wallpapers' mail from the same apex hits inbox). Fix = mark Not-Spam + low-volume warmup.
+  If volume ever grows, move transactional to a dedicated subdomain (e.g. mail.axly.com) in Resend.
+- Full deploy log/decisions: `tasks/deploy.md`.
 
 **Read this first when resuming.** Deeper detail lives in: `tasks/todo.md` (milestone status +
 decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev gotchas),
@@ -9,10 +28,9 @@ decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev g
   M7a `e9801b5` · M7b `f191da6` · M7c `c830e42` · M7 logo-on-flyer `b1872cf` ·
   **M8 community submissions + admin `8a59310`**.
 - Repo: **https://github.com/Brinven/bastet** (public, MIT). `main` ↔ `origin/main`, clean tree.
-- **All MVP features (M1–M8) are done + pushed.** Release docs **README.md + CONTRIBUTING.md (with
-  community-template guidelines) + LICENSE** are written (commit pending). Remaining = **prod deploy**
-  (CF Pages static + Worker; D1/R2 already exist remotely; set `ADMIN_BEARER_TOKEN`) + **Resend domain**
-  for prod email — planned for the morning (user will need guidance on the Resend setup).
+- **All MVP features (M1–M8) are done + pushed, and the app is DEPLOYED & LIVE** at
+  https://bastet.axly.com (see the Deploy status block above). README/CONTRIBUTING/LICENSE committed
+  (`6f0982c`). Prod deploy + Resend email + admin token all done & verified 2026-06-28.
 - **Tier 1 (anonymous) flyer maker** works end-to-end: land → pick a template → add a photo
   (drag/zoom reframe, never auto-cropped) → fill fields → **add your own custom fields** → pick a
   size → download PNG/PDF. Light + dark, mobile + desktop, 6 templates, 4 sizes.
