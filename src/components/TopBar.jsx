@@ -20,8 +20,21 @@ export default function TopBar({ onDownload, downloading, onSaveFlyer, onSaveTem
   const sizeLabel = OUTPUT_SIZES[doc.outputSize]?.label ?? 'Flyer'
 
   return (
+    <>
     <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] px-4 py-3 backdrop-blur-md lg:px-6">
       <Logo />
+
+      {/* How-to guide — kept prominent (tinted) for first-time volunteers. On phones & small tablets
+          it drops to a full-width banner below (see MobileHelpBanner) so it never crowds the header. */}
+      <a
+        href="#help"
+        aria-label="Help — how to make your flyer"
+        className="hidden items-center gap-1.5 rounded-full border border-border bg-primary-soft px-3 py-2 text-[13px] font-semibold text-ink transition hover:bg-surface md:inline-flex lg:px-3.5"
+      >
+        <HelpIcon />
+        <span className="hidden lg:inline">Need help? Read the quick guide</span>
+        <span className="lg:hidden">Help</span>
+      </a>
 
       <div className="flex items-center gap-2.5">
         {/* Account (Tier 2 — optional sign-in) */}
@@ -143,6 +156,17 @@ export default function TopBar({ onDownload, downloading, onSaveFlyer, onSaveTem
         </Menu>
       </div>
     </header>
+
+    {/* Phone / small-tablet help banner — full width so it stays obvious without crowding the bar. */}
+    <a
+      href="#help"
+      className="flex items-center justify-center gap-2 border-b border-border bg-primary-soft px-4 py-2.5 text-[13px] font-semibold text-ink transition hover:bg-surface md:hidden"
+    >
+      <HelpIcon />
+      <span>New here? Read the quick guide</span>
+      <span aria-hidden>→</span>
+    </a>
+    </>
   )
 }
 
@@ -177,6 +201,16 @@ function SaveIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
       <path d="M17 21v-8H7v8M7 3v5h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function HelpIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+      <path d="M9.4 9.2a2.7 2.7 0 0 1 5.2 1c0 1.8-2.6 2.3-2.6 3.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="17.4" r="1.1" fill="currentColor" />
     </svg>
   )
 }

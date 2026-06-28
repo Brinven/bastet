@@ -3,18 +3,20 @@ import { AuthProvider } from './state/AuthContext.jsx'
 import { EditorProvider } from './state/EditorContext.jsx'
 import Editor from './components/editor/Editor.jsx'
 import AdminPage from './components/admin/AdminPage.jsx'
+import HelpPage from './components/help/HelpPage.jsx'
 
 export default function App() {
-  // Tiny hash route: `#admin` opens the template-review queue (M8). Using the hash avoids needing a
-  // router or an SPA fallback on Cloudflare Pages — the root index.html always serves.
-  const [isAdmin, setIsAdmin] = useState(() => window.location.hash === '#admin')
+  // Tiny hash routes: `#admin` opens the template-review queue (M8); `#help` opens the how-to guide.
+  // Using the hash avoids needing a router or an SPA fallback — the root index.html always serves.
+  const [route, setRoute] = useState(() => window.location.hash)
   useEffect(() => {
-    const onHash = () => setIsAdmin(window.location.hash === '#admin')
+    const onHash = () => setRoute(window.location.hash)
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  if (isAdmin) return <AdminPage />
+  if (route === '#admin') return <AdminPage />
+  if (route === '#help') return <HelpPage />
 
   return (
     <AuthProvider>
