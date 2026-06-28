@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { requireAdmin } from '../lib/admin.js'
 import { listTemplatesByStatus, getTemplateAnyStatus, setTemplateStatus } from '../lib/db.js'
 import { getObject, deleteObject } from '../lib/r2.js'
+import { imageHeaders } from '../lib/upload.js'
 
 // Admin routes (M8) — community template approval queue. Bearer-token auth (not session); see
 // lib/admin.js. Mounted at /api/admin.
@@ -21,10 +22,7 @@ admin.get('/templates/:id/thumb', async (c) => {
   if (!row?.thumbnail_key) return c.json({ error: 'Not found' }, 404)
   const obj = await getObject(c.env.TEMPLATES_BUCKET, row.thumbnail_key)
   if (!obj) return c.json({ error: 'Not found' }, 404)
-  const headers = new Headers()
-  obj.writeHttpMetadata(headers)
-  headers.set('Cache-Control', 'private, no-cache')
-  return new Response(obj.body, { headers })
+  return new Response(obj.body, { headers: imageHeaders(obj, 'private, no-cache') })
 })
 
 // POST /api/admin/templates/:id/approve — publish to the community browser.

@@ -113,6 +113,18 @@ export async function createMagicLink(db, userId, tokenHash) {
   return id
 }
 
+// Per-email throttle support: how many magic links this user was issued in the last hour.
+export async function countRecentMagicLinks(db, userId) {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM magic_links
+        WHERE user_id = ? AND created_at > datetime('now', '-1 hour')`
+    )
+    .bind(userId)
+    .first()
+  return row?.n ?? 0
+}
+
 // Validate + consume (single-use, unexpired) a magic link by token hash. Returns the user or null.
 export async function consumeMagicLink(db, tokenHash) {
   const link = await db
@@ -141,6 +153,13 @@ export async function createSession(db, userId, tokenHash) {
 
 export async function deleteSession(db, tokenHash) {
   await db.prepare(`DELETE FROM sessions WHERE token_hash = ?`).bind(tokenHash).run()
+}
+
+// Scheduled cleanup (Cron Trigger): drop used/expired magic links + expired sessions so the auth
+// tables don't grow without bound (also caps the blast radius of request-link abuse).
+export async function pruneExpiredAuth(db) {
+  await db.prepare(`DELETE FROM magic_links WHERE used = 1 OR expires_at < datetime('now')`).run()
+  await db.prepare(`DELETE FROM sessions WHERE expires_at < datetime('now')`).run()
 }
 
 // ── Tier 2 profile (M7) ──────────────────────────────────────────────────────────────────────

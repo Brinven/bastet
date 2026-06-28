@@ -1,0 +1,10 @@
+# Security headers for the static app (Workers Static Assets honors this file). The /api/* routes
+# are served by the Worker, which sets its own headers (see lib/upload.js imageHeaders for assets).
+# CSP is tuned to this app: bundled JS (self, no inline scripts), React inline style attributes
+# (style 'unsafe-inline'), and curated Google Fonts (googleapis CSS + gstatic font files).
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'

@@ -4,6 +4,7 @@ import {
 } from '../lib/db.js'
 import { requireAuth } from '../lib/session.js'
 import { putObject, getObject } from '../lib/r2.js'
+import { readImageUpload, imageHeaders } from '../lib/upload.js'
 
 // Community template library. Public read (approved only) + Tier 2 submission (M8). Submissions
 // land as status='pending' and only appear in the browser after an admin approves them
@@ -54,13 +55,12 @@ templates.post('/', requireAuth, async (c) => {
     return c.json({ error: 'Invalid template data.' }, 400)
   }
 
-  const thumb = form['thumb']
-  if (!thumb || typeof thumb === 'string') return c.json({ error: 'Missing thumbnail.' }, 400)
-  if (thumb.size > MAX_THUMB) return c.json({ error: 'Thumbnail too large.' }, 413)
+  const thumbImg = await readImageUpload(form['thumb'], MAX_THUMB)
+  if (!thumbImg.ok) return c.json({ error: thumbImg.error }, thumbImg.status)
 
   const id = crypto.randomUUID()
   const tKey = communityThumbKey(id)
-  await putObject(c.env.TEMPLATES_BUCKET, tKey, await thumb.arrayBuffer(), thumb.type || 'image/png')
+  await putObject(c.env.TEMPLATES_BUCKET, tKey, thumbImg.buffer, thumbImg.contentType)
 
   // Public author info ONLY — never the submitting user's email (PRD critical accuracy #2).
   await createPendingTemplate(c.env.DB, id, {
@@ -85,10 +85,7 @@ templates.get('/:id/thumb', async (c) => {
   }
   const obj = await getObject(c.env.TEMPLATES_BUCKET, row.thumbnail_key)
   if (!obj) return c.json({ error: 'Not found' }, 404)
-  const headers = new Headers()
-  obj.writeHttpMetadata(headers)
-  headers.set('Cache-Control', 'public, max-age=3600')
-  return new Response(obj.body, { headers })
+  return new Response(obj.body, { headers: imageHeaders(obj, 'public, max-age=3600') })
 })
 
 // GET /api/templates/:id — full template_data, increments download_count (approved only).

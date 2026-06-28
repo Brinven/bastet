@@ -3,6 +3,7 @@ import templates from './routes/templates.js'
 import auth from './routes/auth.js'
 import me from './routes/me.js'
 import admin from './routes/admin.js'
+import { pruneExpiredAuth } from './lib/db.js'
 
 // Bastet API. All routes live under /api/*. In production one Worker serves both the SPA and
 // the API: wrangler.toml's `assets.run_worker_first = ["/api/*"]` routes /api/* here before the
@@ -20,4 +21,9 @@ app.route('/api/admin', admin)
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404))
 
-export default app
+// fetch = the Hono app; scheduled = the Cron Trigger (wrangler.toml [triggers]) that prunes
+// used/expired magic links + sessions so the auth tables stay bounded.
+export default {
+  fetch: (request, env, ctx) => app.fetch(request, env, ctx),
+  scheduled: (event, env, ctx) => ctx.waitUntil(pruneExpiredAuth(env.DB)),
+}

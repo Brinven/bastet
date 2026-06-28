@@ -6,6 +6,7 @@ import {
   countUserTemplates, createUserTemplate, listUserTemplates, getUserTemplate, deleteUserTemplate,
 } from '../lib/db.js'
 import { putObject, getObject, deleteObject } from '../lib/r2.js'
+import { readImageUpload, imageHeaders } from '../lib/upload.js'
 
 // Tier 2 "current user" routes. M6 = read profile; M7a adds profile edit + rescue logo (R2);
 // M7b adds saved flyers (flyer_data JSON in D1 + thumbnail/photo bytes in R2); M7c adds private
@@ -60,13 +61,11 @@ me.patch('/', async (c) => {
 me.post('/logo', async (c) => {
   const u = c.get('user')
   const form = await c.req.parseBody()
-  const file = form['logo']
-  if (!file || typeof file === 'string') return c.json({ error: 'No file uploaded.' }, 400)
-  if (!file.type?.startsWith('image/')) return c.json({ error: 'Please upload an image file.' }, 400)
-  if (file.size > MAX_LOGO) return c.json({ error: 'Logo must be under 10 MB.' }, 413)
+  const img = await readImageUpload(form['logo'], MAX_LOGO)
+  if (!img.ok) return c.json({ error: img.error }, img.status)
 
   const key = `logos/${u.id}` // one logo per rescue → stable key, overwrite on re-upload
-  await putObject(c.env.USER_ASSETS_BUCKET, key, await file.arrayBuffer(), file.type)
+  await putObject(c.env.USER_ASSETS_BUCKET, key, img.buffer, img.contentType)
   await setUserLogoKey(c.env.DB, u.id, key)
   const updated = await getUserById(c.env.DB, u.id)
   return c.json({ user: publicUser(updated) })
@@ -77,10 +76,7 @@ me.get('/logo', async (c) => {
   const u = c.get('user')
   const obj = await getObject(c.env.USER_ASSETS_BUCKET, u.rescue_logo_key)
   if (!obj) return c.json({ error: 'No logo' }, 404)
-  const headers = new Headers()
-  obj.writeHttpMetadata(headers)
-  headers.set('Cache-Control', 'private, no-cache')
-  return new Response(obj.body, { headers })
+  return new Response(obj.body, { headers: imageHeaders(obj, 'private, no-cache') })
 })
 
 // ── Saved flyers (M7b) ─────────────────────────────────────────────────────────────────────────
@@ -125,22 +121,22 @@ me.post('/flyers', async (c) => {
     return c.json({ error: 'Invalid flyer data.' }, 400)
   }
 
-  const thumb = form['thumb']
-  if (!thumb || typeof thumb === 'string') return c.json({ error: 'Missing thumbnail.' }, 400)
-  if (thumb.size > MAX_THUMB) return c.json({ error: 'Thumbnail too large.' }, 413)
+  const thumbImg = await readImageUpload(form['thumb'], MAX_THUMB)
+  if (!thumbImg.ok) return c.json({ error: thumbImg.error }, thumbImg.status)
 
-  const photo = form['photo']
-  const hasPhoto = photo && typeof photo !== 'string'
+  const photoPart = form['photo']
+  const hasPhoto = photoPart && typeof photoPart !== 'string'
+  let photoImg = null
   if (hasPhoto) {
-    if (!photo.type?.startsWith('image/')) return c.json({ error: 'Photo must be an image.' }, 400)
-    if (photo.size > MAX_PHOTO) return c.json({ error: 'Photo must be under 10 MB.' }, 413)
+    photoImg = await readImageUpload(photoPart, MAX_PHOTO)
+    if (!photoImg.ok) return c.json({ error: photoImg.error }, photoImg.status)
   }
 
   const id = crypto.randomUUID()
   const tKey = thumbKey(u.id, id)
-  await putObject(c.env.USER_ASSETS_BUCKET, tKey, await thumb.arrayBuffer(), thumb.type || 'image/png')
-  if (hasPhoto) {
-    await putObject(c.env.USER_ASSETS_BUCKET, photoKey(u.id, id), await photo.arrayBuffer(), photo.type)
+  await putObject(c.env.USER_ASSETS_BUCKET, tKey, thumbImg.buffer, thumbImg.contentType)
+  if (photoImg) {
+    await putObject(c.env.USER_ASSETS_BUCKET, photoKey(u.id, id), photoImg.buffer, photoImg.contentType)
   }
 
   const row = await createSavedFlyer(c.env.DB, u.id, id, {
@@ -233,13 +229,12 @@ me.post('/templates', async (c) => {
     return c.json({ error: 'Invalid template data.' }, 400)
   }
 
-  const thumb = form['thumb']
-  if (!thumb || typeof thumb === 'string') return c.json({ error: 'Missing thumbnail.' }, 400)
-  if (thumb.size > MAX_THUMB) return c.json({ error: 'Thumbnail too large.' }, 413)
+  const thumbImg = await readImageUpload(form['thumb'], MAX_THUMB)
+  if (!thumbImg.ok) return c.json({ error: thumbImg.error }, thumbImg.status)
 
   const id = crypto.randomUUID()
   const tKey = tplThumbKey(u.id, id)
-  await putObject(c.env.USER_ASSETS_BUCKET, tKey, await thumb.arrayBuffer(), thumb.type || 'image/png')
+  await putObject(c.env.USER_ASSETS_BUCKET, tKey, thumbImg.buffer, thumbImg.contentType)
 
   const row = await createUserTemplate(c.env.DB, u.id, id, {
     name,
@@ -289,10 +284,7 @@ me.delete('/templates/:id', async (c) => {
 async function serveObject(c, key) {
   const obj = await getObject(c.env.USER_ASSETS_BUCKET, key)
   if (!obj) return c.json({ error: 'Not found' }, 404)
-  const headers = new Headers()
-  obj.writeHttpMetadata(headers)
-  headers.set('Cache-Control', 'private, no-cache')
-  return new Response(obj.body, { headers })
+  return new Response(obj.body, { headers: imageHeaders(obj, 'private, no-cache') })
 }
 
 function clampStr(v, max) {

@@ -12,6 +12,10 @@ directory = "./dist"
 not_found_handling = "single-page-application"
 run_worker_first = [ "/api/*" ]
 
+# Cron Trigger → the Worker's scheduled() handler prunes expired magic links + sessions daily.
+[triggers]
+crons = [ "0 4 * * *" ]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "bastet-db"

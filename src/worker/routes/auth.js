@@ -4,6 +4,7 @@ import { hashToken, generateToken } from '../lib/crypto.js'
 import {
   getOrCreateUserByEmail,
   createMagicLink,
+  countRecentMagicLinks,
   consumeMagicLink,
   createSession,
   deleteSession,
@@ -43,6 +44,14 @@ auth.post('/request-link', async (c) => {
   }
 
   const user = await getOrCreateUserByEmail(c.env.DB, email)
+
+  // Per-email throttle: cap sign-in emails per address per hour. Over the cap we return the SAME
+  // generic response without creating/sending — stops email bombing + token-table growth without
+  // revealing whether the address exists. (Pair with a per-IP Cloudflare Rate Limiting rule.)
+  if ((await countRecentMagicLinks(c.env.DB, user.id)) >= 5) {
+    return c.json({ ok: true, message: 'Check your email for your sign-in link.' })
+  }
+
   const rawToken = generateToken()
   await createMagicLink(c.env.DB, user.id, await hashToken(rawToken))
 

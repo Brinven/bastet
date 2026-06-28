@@ -63,7 +63,8 @@ Warm (default · 75) · Rose (15) · Berry (340) · Ocean (245) · Teal (195) ·
 7. [x] UI: `ColorThemePicker` (7 swatches + custom accent) in the Style panel; app retones globally
 8. [x] Verified (Playwright): all 7 presets recolor flyer+app in light AND dark; placeholder themed;
        gallery intact; **export pixel-exact** (canvas band RGB == palette bandBg per theme); build clean
-9. [ ] Update handoff + memory; commit + redeploy
+9. [x] Committed (`399141a`) + redeployed LIVE to bastet.axly.com (worker version f821f81b);
+       verified the live bundle serves the theme code. axly.com Bastet link pushed (Brinven/axly-site `320c93d`).
 
 ## As-built notes
 - Palette is EDITOR STATE (not on the doc), parallel to `fonts`. Old saved flyers (literal hex,

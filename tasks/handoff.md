@@ -19,6 +19,44 @@
   If volume ever grows, move transactional to a dedicated subdomain (e.g. mail.axly.com) in Resend.
 - Full deploy log/decisions: `tasks/deploy.md`.
 
+## 🎨 Color themes (2026-06-28) — LIVE (commit `399141a`, worker f821f81b)
+- **Post-MVP color-theme picker** shipped: 7 presets (Warm/Rose/Berry/Ocean/Teal/Forest/Slate) +
+  custom accent, in the editor **Style** panel. One tap retones BOTH the flyer AND the app UI, in
+  light + dark. Full design/as-built in `tasks/color-themes.md`.
+- **Flyer** = semantic color ROLES resolved at render via a `role:*` sentinel (`src/lib/themes.js`
+  `resolveColor`/`resolvePalette`). Templates + `defaultFlyer` author against roles; structural colors
+  (Spotlight overlay, urgent red banner #d6442a, scrim) stay literal. Palette is **editor state**
+  (parallel to `fonts`) — `{id, accent}` in `EditorContext`, exposed as `resolvedPalette`, threaded
+  through loadFlyer/applyUserTemplate + the 3 save snapshots. Old saved flyers (literal hex) unaffected.
+- **App UI** = OKLCH hue rotation: `index.css` tokens use `calc(BASE + var(--brand-hd))` hue +
+  `calc(C * var(--brand-c))` chroma; `applyAppTheme`/`initAppTheme` (main.jsx, before paint) set them
+  from a preset; persisted in `localStorage('bastet-theme')`. Default 0/1 = identical Warm. --success stays green.
+- Export is **pixel-exact** (rendered canvas band RGB == palette per theme). Renderers touched:
+  EditorCanvas/FlyerText/BadgeLayer/ContactBlock/FlyerCustom/FlyerPhoto.
+- **axly.com** now links Bastet (nav/mobile/footer) — repo **Brinven/axly-site** `320c93d` (GitHub Pages).
+
+## 🔒 Security audit + hardening (2026-06-28) — LIVE
+Full-codebase audit (no critical/SQLi/auth-bypass; strong baseline). Fixed the top 3:
+1. **Upload hardening (was HIGH — stored XSS):** uploads were trusting client Content-Type and the
+   public community-thumbnail route did NO type check → an `image/svg+xml` (or `text/html`) upload
+   could be served same-origin and execute. New `src/worker/lib/upload.js` `readImageUpload()`
+   **sniffs magic bytes** and allows only PNG/JPEG/WebP/GIF (**SVG rejected**); the SERVED content-type
+   comes from the sniff, never the client. `imageHeaders()` adds `nosniff` + `default-src 'none';
+   sandbox` to every served object. Wired through `routes/{me,templates,admin}.js`.
+2. **Security headers (was MEDIUM):** new `public/_headers` (Workers Static Assets honors it) — CSP
+   (tuned: `script-src 'self'`, `style-src 'unsafe-inline'`+googleapis, font gstatic, `img 'self'
+   data: blob:`, `frame-ancestors 'none'`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`,
+   `Permissions-Policy`. Verified PNG+PDF export run clean under the CSP.
+3. **Auth abuse (was MEDIUM):** `routes/auth.js` per-email throttle (5/hr → silent generic response,
+   no bombing/enumeration). New `db.pruneExpiredAuth()` + a `scheduled()` handler in `index.js`
+   (export is now `{ fetch, scheduled }`) + daily cron `wrangler.toml [triggers] crons=["0 4 * * *"]`
+   prunes used/expired magic links + sessions.
+- **USER manual step (per-IP half):** add a Cloudflare WAF Rate Limiting rule on
+  `POST /api/auth/request-link` (~10/min/IP → Block/Challenge); optionally enable zone HSTS.
+- Clean categories: SQLi (all `.prepare().bind()`), IDOR (every Tier-2 query scoped by user_id),
+  secrets-in-repo (none), crypto (384-bit tokens, SHA-256), cookie flags, CORS. CSRF mitigated by
+  SameSite=Lax. Couldn't run `npm audit`/`git log -p` (recommend periodically).
+
 **Read this first when resuming.** Deeper detail lives in: `tasks/todo.md` (milestone status +
 decision autopsies), `.impeccable.md` (design system), `tasks/lessons.md` (dev gotchas),
 `bastet-PRD.md` + `CLAUDE.md` (spec).
