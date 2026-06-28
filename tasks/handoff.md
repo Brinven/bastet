@@ -47,14 +47,17 @@ Full-codebase audit (no critical/SQLi/auth-bypass; strong baseline). Fixed the t
    (tuned: `script-src 'self'`, `style-src 'unsafe-inline'`+googleapis, font gstatic, `img 'self'
    data: blob:`, `frame-ancestors 'none'`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`,
    `Permissions-Policy`. Verified PNG+PDF export run clean under the CSP.
-3. **Auth abuse (was MEDIUM):** `routes/auth.js` per-email throttle (5/hr → silent generic response,
-   no bombing/enumeration). New `db.pruneExpiredAuth()` + a `scheduled()` handler in `index.js`
-   (export is now `{ fetch, scheduled }`) prunes used/expired magic links + sessions. Its **Cron
-   Trigger is set in the CF dashboard, NOT wrangler.toml** — the `wrangler login` OAuth token can't
-   manage schedules (a `[triggers]` block makes every `wrangler deploy` fail on the trigger step).
-- **USER manual steps (still pending):** (a) **Cron Trigger** — Worker → Settings → Triggers →
-  add `0 4 * * *` (fires the prune). (b) **per-IP rate limit** — a Cloudflare WAF Rate Limiting rule
-  on `POST /api/auth/request-link` (~10/min/IP → Block/Challenge). (c) optional: enable zone HSTS.
+3. **Auth abuse (was MEDIUM):** `routes/auth.js` has TWO throttles — a **per-email** D1 throttle
+   (5/hr → silent generic response, no bombing/enumeration) AND a **per-IP** D1 fixed-window limit
+   (`bumpRateLimit`, 8/min/IP → 429), backed by a new `rate_limits` table (`migrations/0002`).
+   **Both are in-code, not dashboard** — the free plan allows only ONE WAF rate-limit rule (used by
+   axly-wallpapers) and the Workers rate-limit *binding* did not enforce on this account (tested:
+   27 reqs, 0×429), so D1 counting is the reliable path (verified live: 8×400 then 429). Cleanup =
+   `db.pruneExpiredAuth()` (magic links + sessions + stale rate_limits) run **opportunistically**
+   (~5% of request-link calls, `c.executionCtx.waitUntil`) since all 5 free cron-trigger slots are
+   used. (The dormant `scheduled()` handler in `index.js` stays as a fallback if a cron slot frees.)
+- **USER manual steps:** none required — rate-limit + prune are both in code now. Optional only:
+  enable zone HSTS (SSL/TLS → Edge Certificates), after confirming it's safe for other axly.com subs.
 - Clean categories: SQLi (all `.prepare().bind()`), IDOR (every Tier-2 query scoped by user_id),
   secrets-in-repo (none), crypto (384-bit tokens, SHA-256), cookie flags, CORS. CSRF mitigated by
   SameSite=Lax. Couldn't run `npm audit`/`git log -p` (recommend periodically).

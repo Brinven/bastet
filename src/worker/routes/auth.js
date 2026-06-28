@@ -8,6 +8,8 @@ import {
   consumeMagicLink,
   createSession,
   deleteSession,
+  pruneExpiredAuth,
+  bumpRateLimit,
 } from '../lib/db.js'
 import { sendMagicLink } from '../lib/email.js'
 
@@ -37,10 +39,25 @@ function baseUrl(c) {
 
 // POST /api/auth/request-link  { email }
 auth.post('/request-link', async (c) => {
+  // Per-IP rate limit (D1 fixed-window counter). The free plan allows only one WAF rate-limit rule
+  // (used by axly-wallpapers) and the Workers rate-limit binding didn't enforce on this account, so
+  // we count in D1: cap requests per IP per minute before any further work.
+  const ip = c.req.header('CF-Connecting-IP') || 'unknown'
+  const minute = Math.floor(Date.now() / 60000)
+  if ((await bumpRateLimit(c.env.DB, `reqlink:${ip}:${minute}`)) > 8) {
+    return c.json({ error: 'Too many requests. Please wait a minute and try again.' }, 429)
+  }
+
   const body = await c.req.json().catch(() => ({}))
   const email = String(body.email || '').trim().toLowerCase()
   if (!EMAIL_RE.test(email)) {
     return c.json({ error: 'Please enter a valid email address.' }, 400)
+  }
+
+  // Opportunistic cleanup (free-plan cron-trigger slots are full): on a small fraction of requests,
+  // prune used/expired magic links + sessions in the background so the auth tables stay bounded.
+  if (Math.random() < 0.05) {
+    try { c.executionCtx.waitUntil(pruneExpiredAuth(c.env.DB)) } catch { /* no execution ctx */ }
   }
 
   const user = await getOrCreateUserByEmail(c.env.DB, email)

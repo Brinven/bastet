@@ -155,11 +155,28 @@ export async function deleteSession(db, tokenHash) {
   await db.prepare(`DELETE FROM sessions WHERE token_hash = ?`).bind(tokenHash).run()
 }
 
-// Scheduled cleanup (Cron Trigger): drop used/expired magic links + expired sessions so the auth
-// tables don't grow without bound (also caps the blast radius of request-link abuse).
+// Cleanup: drop used/expired magic links, expired sessions, and stale rate-limit buckets so the
+// auth tables don't grow without bound (also caps the blast radius of request-link abuse). Runs
+// opportunistically from the request path (the free-plan cron-trigger slots are full).
 export async function pruneExpiredAuth(db) {
   await db.prepare(`DELETE FROM magic_links WHERE used = 1 OR expires_at < datetime('now')`).run()
   await db.prepare(`DELETE FROM sessions WHERE expires_at < datetime('now')`).run()
+  await db.prepare(`DELETE FROM rate_limits WHERE created_at < datetime('now', '-1 hour')`).run()
+}
+
+// App-layer rate limiter: atomically bump the counter for `key` (e.g. "reqlink:<ip>:<minute>") and
+// return the new count. The bucket key embeds the time window, so a stale window starts fresh and
+// old rows age out via pruneExpiredAuth(). One round-trip, atomic (UPSERT … RETURNING).
+export async function bumpRateLimit(db, key) {
+  const row = await db
+    .prepare(
+      `INSERT INTO rate_limits (k, count) VALUES (?, 1)
+         ON CONFLICT(k) DO UPDATE SET count = count + 1
+       RETURNING count`
+    )
+    .bind(key)
+    .first()
+  return row?.count ?? 1
 }
 
 // ── Tier 2 profile (M7) ──────────────────────────────────────────────────────────────────────
