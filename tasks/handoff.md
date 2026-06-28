@@ -49,10 +49,12 @@ Full-codebase audit (no critical/SQLi/auth-bypass; strong baseline). Fixed the t
    `Permissions-Policy`. Verified PNG+PDF export run clean under the CSP.
 3. **Auth abuse (was MEDIUM):** `routes/auth.js` per-email throttle (5/hr → silent generic response,
    no bombing/enumeration). New `db.pruneExpiredAuth()` + a `scheduled()` handler in `index.js`
-   (export is now `{ fetch, scheduled }`) + daily cron `wrangler.toml [triggers] crons=["0 4 * * *"]`
-   prunes used/expired magic links + sessions.
-- **USER manual step (per-IP half):** add a Cloudflare WAF Rate Limiting rule on
-  `POST /api/auth/request-link` (~10/min/IP → Block/Challenge); optionally enable zone HSTS.
+   (export is now `{ fetch, scheduled }`) prunes used/expired magic links + sessions. Its **Cron
+   Trigger is set in the CF dashboard, NOT wrangler.toml** — the `wrangler login` OAuth token can't
+   manage schedules (a `[triggers]` block makes every `wrangler deploy` fail on the trigger step).
+- **USER manual steps (still pending):** (a) **Cron Trigger** — Worker → Settings → Triggers →
+  add `0 4 * * *` (fires the prune). (b) **per-IP rate limit** — a Cloudflare WAF Rate Limiting rule
+  on `POST /api/auth/request-link` (~10/min/IP → Block/Challenge). (c) optional: enable zone HSTS.
 - Clean categories: SQLi (all `.prepare().bind()`), IDOR (every Tier-2 query scoped by user_id),
   secrets-in-repo (none), crypto (384-bit tokens, SHA-256), cookie flags, CORS. CSRF mitigated by
   SameSite=Lax. Couldn't run `npm audit`/`git log -p` (recommend periodically).
