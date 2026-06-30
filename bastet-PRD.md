@@ -80,7 +80,7 @@ Human-readable labels, not pixel numbers:
 - Print Flyer — Letter (2550 × 3300 @ 300 DPI equivalent)
 
 **Export**
-- PNG (primary — high-res, pixelRatio: 3)
+- PNG (primary — high-res; rendered at the full output resolution, so `pixelRatio: 1` as-built — see CLAUDE.md Gotcha #2 / As-Built #1)
 - PDF (jsPDF wrapper around the PNG)
 
 **Font Selection**
@@ -89,7 +89,8 @@ Human-readable labels, not pixel numbers:
 
 **Custom Fields (Settings Panel)**
 - Add additional text fields beyond the built-in set
-- Field types: Text, Badge/Boolean, Dropdown
+- Field types: Text, Badge/Boolean
+  - _Dropdown was cut (2026-06-29). It works against the "dead simple" constraint, the M5 milestone (§10) already scoped the deliverable to text + badge, and a dropdown's on-flyer value is just text anyway. Revisit only with an explicit PRD update._
 - Tier 2: custom field definitions saved to rescue profile
 
 ### 5.2 Nice-to-Have (Post-MVP)
@@ -305,7 +306,7 @@ POST   /api/admin/templates/:id/reject
 | M1 | Scaffold + CF Infrastructure | CF Pages + Workers wired, D1 schema applied, R2 buckets created, React+Vite+Tailwind+react-konva hello world | Establish wrangler.toml, env vars, local D1 |
 | M2 | Canvas Editor Core | Image upload with reframe/zoom, all built-in text fields, font picker (curated Google Fonts list), badge toggles | Critical: font load before export |
 | M3 | Template System | 5–8 bundled templates loadable into editor, field bindings wired, community template browser (reads D1) | Templates as local JSON files in repo |
-| M4 | Output + Export | Size picker, PNG export (pixelRatio: 3), PDF export via jsPDF | Test all 4 sizes |
+| M4 | Output + Export | Size picker, PNG export (`pixelRatio: 1` as-built — authored at output res), PDF export via jsPDF | Test all 4 sizes |
 | M5 | Custom Fields | Settings panel to add/remove/reorder custom text+badge fields | Tier 1 only for MVP; Tier 2 persistence comes in M7 |
 | M6 | Tier 2 Auth | Email input → Resend magic link → token verify → session cookie → user record creation | Hash tokens before D1 storage |
 | M7 | Tier 2 Saving + Profile | Rescue profile (auto-populate), save/load flyers, save private templates, custom fields persisted | R2 thumbnail on save |

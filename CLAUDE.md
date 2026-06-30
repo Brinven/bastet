@@ -34,8 +34,8 @@ revert these; the reasons are real. Full context in `tasks/handoff.md` + `tasks/
 | Styling | Tailwind CSS v3 | Utility-first; no component frameworks except shadcn if needed |
 | Fonts | Google Fonts API | Curated list of ~25 fonts; do not expose all 1,500 |
 | PDF export | jsPDF | Wrap PNG output; do not use a headless browser |
-| Hosting | Cloudflare Pages | Frontend static build |
-| API | Cloudflare Workers (Hono) | All `/api/*` routes |
+| Hosting | Cloudflare Workers + Static Assets | One Worker serves the built SPA (`dist/`) **and** `/api/*` on one origin via `run_worker_first`. Not Pages. |
+| API | Cloudflare Workers (Hono) | All `/api/*` routes (same Worker) |
 | Database | Cloudflare D1 | SQLite; always use prepared statements |
 | Storage | Cloudflare R2 | Two buckets: `bastet-templates`, `bastet-user-assets` |
 | Email | Resend | Magic link delivery only; free tier sufficient |
@@ -45,57 +45,78 @@ revert these; the reasons are real. Full context in `tasks/handoff.md` + `tasks/
 
 ## Project Structure
 
+_As-built (reflects what shipped, not the original sketch). State lives in React context under
+`src/state/`, not the planned `hooks/`. Bundled templates are JS (`src/templates/index.js`), not
+JSON files. There is no `_routes.json` and no `export/` component dir._
+
 ```
 bastet/
 ├── src/
 │   ├── components/
-│   │   ├── editor/          # Canvas editor components
-│   │   │   ├── Stage.jsx    # react-konva Stage wrapper
-│   │   │   ├── ImageLayer.jsx
-│   │   │   ├── TextField.jsx
-│   │   │   ├── BadgeLayer.jsx
-│   │   │   └── ContactBlock.jsx
-│   │   ├── templates/       # Template browser UI
-│   │   ├── export/          # Size picker + export controls
-│   │   ├── fields/          # Field panel + custom fields settings
-│   │   └── auth/            # Magic link flow
+│   │   ├── editor/              # Canvas + on-flyer elements (semantic, field-bound)
+│   │   │   ├── Editor.jsx       # Editor shell + persistence (save flyer/template/share) + sync effects
+│   │   │   ├── EditorCanvas.jsx # react-konva Stage wrapper
+│   │   │   ├── FlyerPhoto.jsx   # animal photo: clipFunc + drag/zoom reframe (no auto-crop)
+│   │   │   ├── FlyerText.jsx    # bound text elements
+│   │   │   ├── FlyerCustom.jsx  # M5 custom-field lane (text + badge)
+│   │   │   ├── BadgeLayer.jsx   # "good with" + spayed/neutered pill row
+│   │   │   └── ContactBlock.jsx # rescue name/phone/website + logo band
+│   │   ├── fields/              # Right-rail controls
+│   │   │   ├── ControlPanel.jsx, PhotoControl.jsx, FontPicker.jsx,
+│   │   │   └── CustomFields.jsx, ColorThemePicker.jsx
+│   │   ├── templates/           # Template browser, cards, save/share modals
+│   │   ├── flyers/              # My Flyers gallery + save modal (Tier 2)
+│   │   ├── profile/             # Rescue profile modal (Tier 2)
+│   │   ├── auth/                # AccountButton (magic-link entry)
+│   │   ├── admin/               # AdminPage — #admin hash route, bearer-gated
+│   │   ├── help/                # HelpPage — #help hash route
+│   │   ├── ui/                  # Controls, Modal, Menu, Collapsible
+│   │   └── TopBar.jsx, Logo.jsx
+│   ├── state/                   # React context (replaces the planned hooks/)
+│   │   ├── EditorContext.jsx    # ALL editor state: doc+refit, fields, photo, fonts, palette, custom fields
+│   │   └── AuthContext.jsx      # Tier 2 session state
 │   ├── hooks/
-│   │   ├── useCanvas.js     # Konva stage ref + export logic
-│   │   ├── useAuth.js       # Session state
-│   │   └── useFonts.js      # Google Fonts load + readiness tracking
-│   ├── templates/           # Bundled template JSON files (not from D1)
-│   │   ├── calm-dog-square.json
-│   │   ├── urgent-cat-story.json
-│   │   └── ...
+│   │   └── useFonts.js          # Google Fonts load + readiness tracking
 │   ├── lib/
-│   │   ├── export.js        # toDataURL + jsPDF wrappers
-│   │   ├── fonts.js         # Font manifest + loader
-│   │   └── fieldBindings.js # Built-in field ID constants
-│   └── worker/              # Cloudflare Worker (Hono)
-│       ├── index.js         # Route definitions
+│   │   ├── outputSizes.js, fieldBindings.js, fonts.js, image.js
+│   │   ├── defaultFlyer.js      # built-in starter flyer doc
+│   │   ├── refit.js             # scale a flyer doc to any of the 4 output sizes
+│   │   ├── themes.js            # color-theme presets + role→color resolve + app hue (OKLCH)
+│   │   ├── export.js            # toDataURL + jsPDF wrappers (pixelRatio:1 — see Gotcha #2)
+│   │   └── communityApi.js, flyersApi.js, userTemplatesApi.js  # Tier 2 fetch wrappers
+│   ├── templates/
+│   │   └── index.js             # 6 bundled templates (JS module, not JSON files)
+│   ├── App.jsx, main.jsx        # entry; hash routes for #admin / #help
+│   └── worker/                  # Cloudflare Worker (Hono)
+│       ├── index.js             # routes + /api/health + scheduled() prune
 │       ├── routes/
-│       │   ├── templates.js
-│       │   ├── auth.js
-│       │   ├── me.js
-│       │   └── admin.js
+│       │   └── templates.js, auth.js, me.js, admin.js
 │       └── lib/
-│           ├── db.js        # D1 helpers
-│           ├── r2.js        # R2 upload/URL helpers
-│           ├── crypto.js    # SHA-256 token hashing (Web Crypto API)
-│           └── email.js     # Resend wrapper
+│           ├── db.js            # D1 helpers (prepared statements)
+│           ├── r2.js            # R2 upload/URL helpers
+│           ├── upload.js        # magic-byte image validation (no SVG)
+│           ├── crypto.js        # SHA-256 token hashing (Web Crypto API)
+│           ├── session.js       # requireAuth middleware
+│           ├── admin.js         # requireAdmin (bearer) middleware
+│           └── email.js         # Resend wrapper
 ├── migrations/
-│   └── 0001_initial.sql     # Full D1 schema
-├── public/
-├── wrangler.toml
-├── vite.config.js
-└── _routes.json             # CF Pages: route /api/* to Worker
+│   ├── 0001_initial.sql         # core D1 schema
+│   └── 0002_rate_limits.sql     # app-layer auth-throttle counters
+├── public/                      # _headers (CSP / X-Frame / nosniff), static assets
+├── dist/                        # Vite build output (served by the Worker)
+├── wrangler.toml                # single-Worker + [assets] static-asset model
+├── vite.config.js               # dev: proxy /api → :8787
+└── index.html
 ```
 
 ---
 
 ## D1 Schema (Full)
 
-Apply via `wrangler d1 migrations apply bastet-db --remote`
+Apply via `wrangler d1 migrations apply bastet-db --remote`. Two migrations: `0001_initial.sql`
+(the tables below) and `0002_rate_limits.sql` (the `rate_limits` table — app-layer auth throttling,
+added because CF's free plan allows only one WAF rate-limit rule and the Workers rate-limit binding
+didn't enforce on this account, so we count in D1).
 
 ```sql
 PRAGMA journal_mode = WAL;
@@ -180,6 +201,14 @@ CREATE TABLE IF NOT EXISTS user_templates (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_templates_user_id ON user_templates(user_id);
+
+-- migrations/0002_rate_limits.sql — app-layer auth throttling counters (per-IP / per-email window).
+-- Short-lived rows, pruned by pruneExpiredAuth(). See routes/auth.js + db.js (bumpRateLimit).
+CREATE TABLE IF NOT EXISTS rate_limits (
+  k          TEXT PRIMARY KEY,
+  count      INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 ```
 
 ---
@@ -236,26 +265,27 @@ export const FIELDS = {
 ### Export with guaranteed font load
 
 ```js
-// src/lib/export.js
+// src/lib/export.js  — pixelRatio is 1 here ON PURPOSE (see Gotcha #2 / As-Built note #1)
 export async function exportToPNG(stageRef, outputSize) {
-  // CRITICAL: fonts must be fully loaded or text renders in system fallback
+  // CRITICAL: fonts must be fully loaded or text renders in system fallback (Gotcha #1)
   await document.fonts.ready;
   await new Promise(r => setTimeout(r, 200)); // safety buffer
 
   const { width, height } = OUTPUT_SIZES[outputSize];
   const stage = stageRef.current;
+  const previewWidth = stage.width();
+  const previewHeight = stage.height();
 
-  // Scale stage to target output resolution
-  const scaleX = width / stage.width();
-  const scaleY = height / stage.height();
-  stage.scale({ x: scaleX, y: scaleY });
+  // Scale the on-screen preview UP to the full output resolution.
+  stage.scale({ x: width / previewWidth, y: height / previewHeight });
   stage.size({ width, height });
 
-  const dataURL = stage.toDataURL({ pixelRatio: 3, mimeType: 'image/png' });
+  // pixelRatio:1 — the stage is already at output res; 3 would oversample (≈227 MB print PDF).
+  const dataURL = stage.toDataURL({ pixelRatio: 1, mimeType: 'image/png' });
 
-  // Restore preview dimensions
+  // Restore preview dimensions (local vars — no _previewWidth attr).
   stage.scale({ x: 1, y: 1 });
-  stage.size({ width: stage.attrs._previewWidth, height: stage.attrs._previewHeight });
+  stage.size({ width: previewWidth, height: previewHeight });
 
   return dataURL;
 }
@@ -357,10 +387,22 @@ name = "bastet-worker"
 main = "src/worker/index.js"
 compatibility_date = "2024-09-23"
 
+# One Worker serves the built SPA (dist/) AND the /api/* Hono routes. run_worker_first sends
+# /api/* to the Worker BEFORE the static-asset layer (auth/session must run); everything else is a
+# static asset with SPA fallback to index.html. (Needs wrangler >= 4.20 for the array form.)
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+run_worker_first = [ "/api/*" ]
+
+# scheduled() prunes expired magic links + sessions. Its Cron Trigger is set in the Cloudflare
+# DASHBOARD (Worker → Settings → Triggers), NOT here — the wrangler-login OAuth token can't manage
+# schedules, so a [triggers] block makes every deploy fail on the trigger step.
+
 [[d1_databases]]
 binding = "DB"
 database_name = "bastet-db"
-database_id = "REPLACE_WITH_ACTUAL_ID"
+database_id = "REPLACE_WITH_ACTUAL_ID"   # live value committed in the real wrangler.toml
 
 [[r2_buckets]]
 binding = "TEMPLATES_BUCKET"
@@ -372,24 +414,22 @@ bucket_name = "bastet-user-assets"
 
 [vars]
 ENVIRONMENT = "production"
+MAGIC_LINK_FROM = "Bastet <bastet@axly.com>"        # non-secret config
+MAGIC_LINK_BASE_URL = "https://bastet.axly.com"
 
-# Secrets (set via `wrangler secret put`):
-# RESEND_API_KEY
-# ADMIN_BEARER_TOKEN
-# MAGIC_LINK_BASE_URL
+# Secrets (set via `wrangler secret put`, never committed):
+#   RESEND_API_KEY      — magic-link email (Resend; axly.com is the verified domain)
+#   ADMIN_BEARER_TOKEN  — gates /api/admin/* (community approval queue)
 ```
 
 ---
 
-## _routes.json (CF Pages)
+## Routing (single Worker + Static Assets — no `_routes.json`)
 
-```json
-{
-  "version": 1,
-  "include": ["/api/*"],
-  "exclude": []
-}
-```
+There is **no `_routes.json`** and **no CF Pages project** — that was the old model. Routing is
+handled in `wrangler.toml` via `[assets] run_worker_first = ["/api/*"]`: the Worker runs first for
+`/api/*` (Hono handles the API), and every other path is served as a static asset from `dist/` with
+SPA fallback to `index.html`. In local dev, `vite.config.js` proxies `/api` → `localhost:8787`.
 
 ---
 
@@ -397,7 +437,7 @@ ENVIRONMENT = "production"
 
 1. **Font load before export (CRITICAL)** — Always `await document.fonts.ready` plus a 200ms buffer before calling `stage.toDataURL()`. If fonts aren't loaded, Konva silently falls back to the system default. The user sees correct fonts in preview but wrong fonts in the export. This is the #1 export bug.
 
-2. **pixelRatio (CRITICAL)** — Always pass `{ pixelRatio: 3 }` to `toDataURL()`. The default is 1 (screen resolution). Forgetting this produces blurry exports on retina displays.
+2. **pixelRatio — this app uses `1`, not `3` (read before "fixing")** — The flyer document is authored at the TRUE output resolution (Print = 2550×3300, IG Post = 1080×1080) and the stage is scaled UP to that resolution at export, so `toDataURL({ pixelRatio: 1 })` already yields a crisp image at exactly the promised dimensions. `pixelRatio: 3` would 3× oversample every export — a Print PDF balloons to ≈227 MB. **Do NOT raise it to 3.** This intentionally supersedes the generic "always pass 3 for retina" advice; see As-Built note #1 and `src/lib/export.js`.
 
 3. **react-konva and SSR** — react-konva does not work with server-side rendering. Do not use Next.js. Vite only.
 
@@ -407,7 +447,7 @@ ENVIRONMENT = "production"
 
 6. **Magic link tokens** — Raw tokens never touch D1. Always hash before storage. Always hash before lookup. The raw token is emailed and then discarded from server memory.
 
-7. **CF Pages + Worker routing** — The `_routes.json` file at the project root tells CF Pages to send `/api/*` to the Worker. Without this, Pages tries to serve `/api/*` as static files and returns 404.
+7. **API routing (single Worker, not Pages)** — `/api/*` reaches the Hono Worker via `[assets] run_worker_first = ["/api/*"]` in `wrangler.toml`. There is no `_routes.json` and no CF Pages project — this is the single-Worker + Static Assets model. (Earlier docs referenced `_routes.json`; that mechanism is obsolete here.)
 
 8. **Portrait photo UX** — Never auto-crop animal photos. Always let the user drag/zoom to reframe within the image element's bounds. Auto-crop cuts ears and tails, which breaks trust immediately.
 
@@ -439,20 +479,21 @@ Do not implement these without explicit PRD update:
 
 ## Build Checklist
 
-Before considering any milestone complete:
+Status: **MVP shipped (M1–M8 + security hardening), live at https://bastet.axly.com.** Items below
+were verified at launch. Re-verify any item you touch in future work.
 
-- [ ] Exported PNG matches canvas preview exactly (no font substitution, no layout shift)
-- [ ] Export tested at all 4 output sizes
-- [ ] Portrait phone photo can be positioned/zoomed without auto-crop
-- [ ] Font picker loads correctly and selected font appears in export
-- [ ] Magic link token is hashed in D1 (verify in wrangler d1 console — plaintext token must not appear)
-- [ ] Session cookie is HttpOnly and Secure in production
-- [ ] Community template browser only shows `status = 'approved'` records
-- [ ] Admin endpoint rejects requests without correct bearer token
-- [ ] Rescue profile (Tier 2) auto-populates rescue_name, rescue_logo, rescue_phone, rescue_website on new flyer
-- [ ] R2 upload size limits enforced (10MB logo, 2MB thumbnail)
-- [ ] No console.log statements exposing user data or tokens in production build
-- [ ] README includes what it is, who it's for, one-click CF deploy, local dev in ≤ 5 steps
+- [x] Exported PNG matches canvas preview exactly (no font substitution, no layout shift)
+- [x] Export tested at all 4 output sizes _(Facebook landscape via refit is the known imperfect case — As-Built #3)_
+- [x] Portrait phone photo can be positioned/zoomed without auto-crop
+- [x] Font picker loads correctly and selected font appears in export
+- [x] Magic link token is hashed in D1 (verify in wrangler d1 console — plaintext token must not appear)
+- [x] Session cookie is HttpOnly and Secure in production
+- [x] Community template browser only shows `status = 'approved'` records
+- [x] Admin endpoint rejects requests without correct bearer token
+- [x] Rescue profile (Tier 2) auto-populates rescue_name, rescue_logo, rescue_phone, rescue_website on new flyer
+- [x] R2 upload size limits enforced (10MB logo, 2MB thumbnail)
+- [x] No console.log statements exposing user data or tokens in production build
+- [x] README includes what it is, who it's for, one-click CF deploy, local dev in ≤ 5 steps
 
 ---
 
